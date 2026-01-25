@@ -113,7 +113,7 @@ if __name__ == "__main__":
     await main()
 
 # 1. Gerekli kütüphaneleri yükle
-!pip install -q -U google-generativeai pyTelegramBotAPI nest_asyncio
+
 from flask import Flask
 from threading import Thread
 # !pip install google-genai python-telegram-bot nest_asyncio
