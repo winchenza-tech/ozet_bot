@@ -32,7 +32,7 @@ def keep_alive():
 nest_asyncio.apply()
 
 # BURAYI GÜNCELLEYİN (BotFather'dan aldığınız YENİ token)
-TELEGRAM_TOKEN = "8531416366:AAHiijl_CjB2bGBYE-3vTMnLsLVKfl0Mr4I"
+TELEGRAM_TOKEN = "8531416366:AAEIuoU7VZKgkceMmw21bXzHVvLic6AtjmM"
 GOOGLE_API_KEY = "AIzaSyBtAQLG5jw-nIG83Pa1w2oDi5GvOKZ-CPQ"
 
 # Gemini İstemcisi
