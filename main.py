@@ -18,6 +18,7 @@ from threading import Thread
 import asyncio
 import nest_asyncio
 import datetime
+import os
 from collections import deque
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
@@ -26,6 +27,20 @@ from google import genai
 app = Flask('')
 # --- AYARLAR ---
 nest_asyncio.apply()
+@app.route('/')
+def home():
+    return "Zenithar Bot Aktif ve 7/24 Uyanık!"
+
+# İŞTE BURAYA YAZIYORSUN:
+def run():
+    # Render'ın verdiği portu al, yoksa 8080 kullan
+    port = int(os.environ.get("PORT", 8080)) 
+    print(f"Flask {port} portunda başlatılıyor...")
+    app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
 
 # ÖNEMLİ: Token'ın içinde ":" olduğundan emin ol!
 TELEGRAM_TOKEN = "8531416366:AAGD-KEXr5FRKO5O-woh54bO4yn8Vdj2oKY"
