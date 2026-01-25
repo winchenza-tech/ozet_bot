@@ -32,7 +32,7 @@ def keep_alive():
     t.start()
 
 # ÖNEMLİ: Token'ın içinde ":" olduğundan emin ol!
-TELEGRAM_TOKEN = "8531416366:AAGD-KEXr5FRKO5O-woh54bO4yn8Vdj2oKY"
+TELEGRAM_TOKEN = "8531416366:AAHiijl_CjB2bGBYE-3vTMnLsLVKfl0Mr4I"
 GOOGLE_API_KEY = "AIzaSyBtAQLG5jw-nIG83Pa1w2oDi5GvOKZ-CPQ"
 
 # Yeni Nesil Gemini İstemcisi
