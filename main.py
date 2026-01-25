@@ -209,14 +209,7 @@ async def main():
     while True: await asyncio.sleep(60)
 
 if __name__ == "__main__":
-    await main()
-
-import google.generativeai as genai
-
-# Kendi API anahtarını buraya koy
-genai.configure(api_key="AIzaSyBtAQLG5jw-nIG83Pa1w2oDi5GvOKZ-CPQ")
-
-print("Erişebildiğin Modeller:")
-for m in genai.list_models():
-    if 'generateContent' in m.supported_generation_methods:
-        print(f"-> {m.name}")
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("Bot kapatıldı.")
