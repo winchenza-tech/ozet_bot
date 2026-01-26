@@ -18,7 +18,6 @@ def home():
     return "Zenithar 7/24 Görev Başında!"
 
 def run_flask():
-    # Render'ın portunu yakala
     port = int(os.environ.get("PORT", 8080))
     flask_app.run(host='0.0.0.0', port=port)
 
@@ -33,29 +32,41 @@ nest_asyncio.apply()
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
-# --- GRUP KİLİDİ VE ÖZEL TEXTLER ---
+# --- GRUP KİLİDİ VE HATA MESAJI AYARLARI ---
 AUTHORIZED_GROUP_ID = -1003297262036 
-UNAUTHORIZED_ERROR_TEXT = "Sadece ES JUSTO grubunda çalışacağını söyledik. Okuduğun basit bir cümleyi anlamayacak kadar gerizekalı isen altta verdiğim linkten beyin gelişim egzersizleri yapabilirsin.
-\n https://www.mentalup.net/blog/zeka-gelistirici-oyunlar
-"
+
+# Buraya GitHub'a yüklediğin görselin "Raw" linkini yapıştırabilirsin.
+# Şimdilik örnek şeffaf görsel linki duruyor.
+UNAUTHORIZED_IMAGE_URL = "https://i.ibb.co/Cp2x2NqY/MG-8092.png"
+
+# Emojisiz, sert ve net hata metni
+UNAUTHORIZED_ERROR_TEXT = (
+    "Sadece ES JUSTO grubunda çalışacağını söyledik.\n\n"
+    "https://www.mentalup.net/blog/zeka-gelistirici-oyunlar"
+)
 
 client = genai.Client(api_key=GOOGLE_API_KEY)
 
-group_history = deque(maxlen=350)
+group_history = deque(maxlen=300)
 last_usage = {} 
 COOLDOWN_MINUTES = 10
 
 # --- 3. BOT FONKSİYONLARI ---
 
 async def record_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Gruptaki mesajları kaydeder, dışarıya hata basar."""
-    # Güvenlik Kontrolü: Yetkili grup değilse
+   
+    # Güvenlik Kontrolü
     if update.effective_chat.id != AUTHORIZED_GROUP_ID:
-        # Sadece Özel Mesajda (DM) hata metnini bas, diğer gruplarda sessiz kal
+        # Sadece özel mesajda (DM) görsel + metin ile cevap ver
         if update.effective_chat.type == 'private':
-            await update.message.reply_text(UNAUTHORIZED_ERROR_TEXT)
+            await update.message.reply_photo(
+               
+                caption=UNAUTHORIZED_ERROR_TEXT
+                 photo=UNAUTHORIZED_IMAGE_URL,
+            )
         return
 
+    # Mesaj kaydetme (Sadece yetkili grupta)
     if update.message and update.message.text:
         user = update.effective_user.first_name
         text = update.message.text
@@ -64,9 +75,13 @@ async def record_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Özet komutunu işler."""
     
-    # Güvenlik Kontrolü: Yetkisiz yerden komut verilirse
+    # Güvenlik Kontrolü
     if update.effective_chat.id != AUTHORIZED_GROUP_ID:
-        await update.message.reply_text(UNAUTHORIZED_ERROR_TEXT)
+        await update.message.reply_photo(
+           
+            caption=UNAUTHORIZED_ERROR_TEXT
+             photo=UNAUTHORIZED_IMAGE_URL,
+        )
         return
 
     chat_id = update.effective_chat.id
@@ -89,21 +104,21 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Hafızada yeterli mesaj yok (En az 10 mesaj gerekli).")
         return
 
-    # Bekleme mesajı
     status_msg = await update.message.reply_text("⏳ Yukarıdaki mesajları okuyorum. Lütfen bekle...")
 
-    # --- PROMPT HAZIRLIĞI ---
+    # --- PROMPT ---
     full_text = "\n".join(list(group_history)[-count:])
    
 
     prompt = f"""
     Aşağıdaki konuşmaları samimi, esprili ve muzip bir dille özetle. Özel kurallar:
     1: Mesajlar arasında Zenithar, Gizem veya Cıtkırıldı varsa bunları özete mutlaka dahil et ama hep de onlardan bahsetme diğerleriyle eşit derecede olsun. Bu özeti bana verdiğin saat tek sayı ise ve özette Gizem varsa ondan Kralicemiz Gizem diyerek bahset, Çift sayı ise sadece Gizem diyebilirsin.
-    2: Özette Felicia ya da Tuna varsa onlarla dalga geç ve onlara biraz laf sok ama abartma sadece hafif dokundur. Eğer yoklarsa isimlerini anma.
+    2: Özette Felicia ya da Tuna varsa onları alaya al ve onlara biraz laf sok ama abartma sadece hafif dokundur. Eğer yoklarsa isimlerini anma.
     3: Özet içerisinde asla * (yıldız) işareti kullanma.
     4: Yazılanların hepsini 'o şunu dedi bu bunu dedi' gibi aynen yazmak yerine daha çok olay olarak özetle. Daha çok ince espri kat. 
-    5: Bir kişinin ismi tek ya da iki harften oluşabilir örneğin 'F' veya 'E' kullanıcıları ile başkalarını karıştırma, 
-    6:özet maksimum 225 kelimelik olsun. Özette olayları kısa şekilde anlatırken mümkün olduğunca daha çok olaya ve kişiye değin.
+    5: Bir kişinin ismi tek ya da iki harften oluşabilir örneğin 'F' veya 'E' ile diğer kişileri karıştırma,
+    6: özet maksimum 225 kelimelik olsun. Olayları çok uzatmadan özetle böylece Mümkün olduğunca daha fazla olaya ve kişiye değin.
+    
     KONUŞMALAR:
     {full_text}
     """
@@ -115,13 +130,13 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             contents=prompt,
             config=types.GenerateContentConfig(
                 safety_settings=[
-                   
+                    
                     types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE'),
                 ]
             )
         )
         
-        # Bekleme mesajını sil ve özeti taze bir mesaj olarak at
+        # Bekleme mesajını sil ve özeti gönder
         await status_msg.delete()
         await update.message.reply_text(f"📝 CHAT ÖZETİ:\n{response.text}")
         
@@ -137,7 +152,7 @@ async def main():
     keep_alive()
     
     if not TELEGRAM_TOKEN or not GOOGLE_API_KEY:
-        print("❌ HATA: Environment Variables eksik!")
+        print("❌ HATA: Environment Değişkenleri (TOKEN veya KEY) eksik!")
         return
 
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
@@ -150,7 +165,7 @@ async def main():
     
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), record_message))
 
-    print(f"🚀 Zenithar Nihai Sürüm Aktif. Yetkili Grup: {AUTHORIZED_GROUP_ID}")
+    print(f"🚀 Zenithar Nihai Sürüm Aktif. Hedef Grup: {AUTHORIZED_GROUP_ID}")
     
     await application.initialize()
     await application.start()
