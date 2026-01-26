@@ -112,7 +112,6 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # --- GEMINI ÇAĞRISI HAZIRLIĞI ---
     full_text = "\n".join(list(group_history)[-count:])
     
-
     prompt = f"""
     Aşağıdaki konuşmaları samimi, esprili ve muzip bir dille özetle. Özel kurallar:
     1: Mesajlar arasında Zenithar, Gizem veya Cıtkırıldı varsa bunları özete mutlaka dahil et ama hep de onlardan bahsetme diğerleriyle eşit derecede olsun. Bu özeti bana verdiğin saat tek sayı ise ve özette Gizem varsa ondan Kralicemiz Gizem diyerek bahset, Çift sayı ise sadece Gizem diyebilirsin.
@@ -132,7 +131,6 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             contents=prompt,
             config=types.GenerateContentConfig(
                 safety_settings=[
-                    
                     types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE'),
                 ]
             )
@@ -140,31 +138,33 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # --- PARALEL ANİMASYON DÖNGÜSÜ ---
     try:
-        # 1. Gemini'yi Arka Planda Başlat
-        gemini_task = asyncio.to_thread(call_gemini)
+        # DÜZELTME: asyncio.to_thread bir coroutine döner. 
+        # .done() metodunu kullanabilmek için onu create_task ile sarmalıyoruz.
+        gemini_coro = asyncio.to_thread(call_gemini)
+        gemini_task = asyncio.create_task(gemini_coro)
         
-        # 2. İlk 2 Saniye Bekle
+        # 1. İlk 2 Saniye Bekle
         await asyncio.sleep(2)
         
-        # 3. Mesajı Güncelle: "Cıtkırıldroid Bot..."
+        # 2. Mesajı Güncelle: "Cıtkırıldroid Bot..."
         if not gemini_task.done():
             try:
                 await status_msg.edit_text("🤖 Cıtkırıldroid Bot yapay zeka entegrasyonunu aktif hale getiriyor...")
             except: pass
 
-        # 4. İkinci 2 Saniye Bekle (Hala bitmediyse)
+        # 3. İkinci 2 Saniye Bekle (Hala bitmediyse)
         if not gemini_task.done():
             await asyncio.sleep(2)
-            # 5. Mesajı Güncelle: "Nöral ağlar..."
+            # 4. Mesajı Güncelle: "Nöral ağlar..."
             if not gemini_task.done():
                 try:
                     await status_msg.edit_text("⚡ Nöral ağlar verileri işliyor...")
                 except: pass
 
-        # 6. Sonucu Al
+        # 5. Sonucu Al
         response = await gemini_task
         
-        # 7. Ekrana Bas
+        # 6. Ekrana Bas
         await status_msg.delete()
         await update.message.reply_text(f"📝 CHAT ÖZETİ:\n{response.text}")
         
@@ -196,7 +196,7 @@ async def main():
     ))
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), record_message))
 
-    
+    print(f"🚀 Zenithar Aktif! Hedef Grup: {AUTHORIZED_GROUP_ID}")
     
     await application.initialize()
     await application.start()
@@ -210,3 +210,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         pass
+
