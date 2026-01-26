@@ -10,7 +10,7 @@ from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, Comma
 from google import genai
 from google.genai import types
 
-# --- 1. WEB SUNUCUSU ---
+# --- 1. WEB SUNUCUSU (7/24 AKTİFLİK İÇİN) ---
 flask_app = Flask('')
 
 @flask_app.route('/')
@@ -34,15 +34,15 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 # --- GRUP KİLİDİ ---
 AUTHORIZED_GROUP_ID = -1003297262036 
 
-# --- GÖRSEL VE TEXTLER ---
+# --- GÖRSEL VE HATA METİNLERİ ---
 UNAUTHORIZED_IMAGE_URL = "https://i.ibb.co/zTjGk8rv/MG-8095.jpg"
 
 UNAUTHORIZED_ERROR_TEXT = (
-    "Sadece ES JUSTO grubunda çalışacağını söylemiştim.\n"
-    "Eğer okuduğunu anlamadıysan aşağıdaki linke tıkla.\n\n"
+    "Sadece ES JUSTO grubunda çalışacağını söyledik.\n\n"
+    "Okuduğun basit bir cümleyi anlamayacak kadar gerizekalı isen "
+    "altta verdiğim linkten beyin gelişim egzersizleri yapabilirsin.\n"
     "https://www.mentalup.net/blog/zeka-gelistirici-oyunlar"
 )
-
 
 client = genai.Client(api_key=GOOGLE_API_KEY)
 
@@ -54,19 +54,17 @@ COOLDOWN_MINUTES = 10
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Bot özelden başlatıldığında (/start) hata mesajını basar."""
-    # Start komutu yetkili grup dışında (özellikle DM'de) çalıştırılırsa:
     if update.effective_chat.id != AUTHORIZED_GROUP_ID:
         await update.message.reply_photo(
             photo=UNAUTHORIZED_IMAGE_URL,
             caption=UNAUTHORIZED_ERROR_TEXT
         )
-    else:
-        # Eğer yetkili grupta /start denirse (Opsiyonel: Sessiz kalabilir veya selam verebilir)
-        pass 
+    # Yetkili grupta ise sessiz kalır
 
 async def record_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Yetkisiz kullanımı engeller ve mesajları kaydeder."""
     if update.effective_chat.id != AUTHORIZED_GROUP_ID:
+        # Sadece özel mesajda (DM) cevap ver
         if update.effective_chat.type == 'private':
             await update.message.reply_photo(
                 photo=UNAUTHORIZED_IMAGE_URL,
@@ -80,7 +78,7 @@ async def record_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         group_history.append(f"{user}: {text}")
 
 async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Eşzamanlı (Parallel) çalışan özet sistemi."""
+    """Animasyonlu ve eşzamanlı çalışan özet sistemi."""
     
     if update.effective_chat.id != AUTHORIZED_GROUP_ID:
         await update.message.reply_photo(
@@ -108,21 +106,21 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Hafızada yeterli mesaj yok (En az 10 mesaj gerekli).")
         return
 
-    # 1. Aşama: İlk Mesajı Gönder
+    # 1. Aşama: İlk Mesaj
     status_msg = await update.message.reply_text("⏳ Yukarıdaki mesajları okuyorum. Lütfen bekle...")
 
     # --- GEMINI ÇAĞRISI HAZIRLIĞI ---
     full_text = "\n".join(list(group_history)[-count:])
-   
+    
 
     prompt = f"""
-     Aşağıdaki konuşmaları samimi, esprili ve muzip bir dille özetle. Özel kurallar:
+    Aşağıdaki konuşmaları samimi, esprili ve muzip bir dille özetle. Özel kurallar:
     1: Mesajlar arasında Zenithar, Gizem veya Cıtkırıldı varsa bunları özete mutlaka dahil et ama hep de onlardan bahsetme diğerleriyle eşit derecede olsun. Bu özeti bana verdiğin saat tek sayı ise ve özette Gizem varsa ondan Kralicemiz Gizem diyerek bahset, Çift sayı ise sadece Gizem diyebilirsin.
     2: Özette Felicia ya da Tuna varsa onları alaya al ve onlara biraz laf sok ama abartma sadece hafif dokundur. Eğer yoklarsa isimlerini anma.
     3: Özet içerisinde asla * (yıldız) işareti kullanma.
     4: Yazılanların hepsini 'o şunu dedi bu bunu dedi' gibi aynen yazmak yerine daha çok olay olarak özetle. Daha çok ince espri kat. 
     5: Bir kişinin ismi tek ya da iki harften oluşabilir örneğin 'F' veya 'E' ile diğer kişileri karıştırma,
-    6: özet maksimum 200 kelimelik olsun. Olayları 5 paragrafa bölerek okunabilirliği artır, paragrafların başında anlatılan olaya uygun emoji kullanabilirsin, olayların anlatımını uzatmadan kısa kısa özetle böylece Mümkün olduğunca daha fazla olaya ve kişiye değinebilirsin.
+    6: özet maksimum 200 kelimelik olsun. Olayları 5 paragrafa bölerek okunabilirliği artır, paragrafların başında anlatılan olaya uygun emoji kullanabilirsin, olay anlatımını uzatmadan kısa kısa özetle böylece Mümkün olduğunca daha fazla olaya ve kişiye değinebilirsin.
     
     KONUŞMALAR:
     {full_text}
@@ -130,45 +128,43 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     def call_gemini():
         return client.models.generate_content(
-            model='gemini-2.5-flash', 
+            model='gemini-2.0-flash', 
             contents=prompt,
             config=types.GenerateContentConfig(
                 safety_settings=[
-                   
+                    
                     types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE'),
                 ]
             )
         )
 
-    # --- PARALEL İŞLEM ---
-        try:
-        # 1. Gemini'yi başlat
+    # --- PARALEL ANİMASYON DÖNGÜSÜ ---
+    try:
+        # 1. Gemini'yi Arka Planda Başlat
         gemini_task = asyncio.to_thread(call_gemini)
         
-      
+        # 2. İlk 2 Saniye Bekle
+        await asyncio.sleep(2)
         
-        # Eğer bitmediyse 1. Mesajı Bas
+        # 3. Mesajı Güncelle: "Cıtkırıldroid Bot..."
         if not gemini_task.done():
             try:
                 await status_msg.edit_text("🤖 Cıtkırıldroid Bot yapay zeka entegrasyonunu aktif hale getiriyor...")
-            except:
-                pass
+            except: pass
 
-        # 3. İkinci Bekleme (Hala bitmediyse 2 Saniye daha bekle)
+        # 4. İkinci 2 Saniye Bekle (Hala bitmediyse)
         if not gemini_task.done():
             await asyncio.sleep(2)
-            # Bekleme bittikten sonra HALA bitmediyse mesajı değiştir
+            # 5. Mesajı Güncelle: "Nöral ağlar..."
             if not gemini_task.done():
                 try:
-                    await status_msg.edit_text("⚡Nöral ağlar verileri işliyor...")
-                except:
-                    pass
+                    await status_msg.edit_text("⚡ Nöral ağlar verileri işliyor...")
+                except: pass
 
-        # 4. Sonucu al
+        # 6. Sonucu Al
         response = await gemini_task
-
         
-        # Yazdır
+        # 7. Ekrana Bas
         await status_msg.delete()
         await update.message.reply_text(f"📝 CHAT ÖZETİ:\n{response.text}")
         
@@ -192,21 +188,15 @@ async def main():
 
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
-    # --- HANDLER TANIMLAMALARI ---
-    
-    # 1. /start Komutu (Yeni Eklendi)
+    # Handlerlar
     application.add_handler(CommandHandler("start", start_command))
-    
-    # 2. Özet Komutları
     application.add_handler(MessageHandler(
         filters.Regex(r'(?i)^/son(200|300)(@chat_ozet_bot)?$'), 
         summarize_command
     ))
-    
-    # 3. Normal Mesaj Kaydı
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), record_message))
 
-    print(f"🚀 Zenithar v1.9 (Start Destekli) Aktif!")
+    
     
     await application.initialize()
     await application.start()
