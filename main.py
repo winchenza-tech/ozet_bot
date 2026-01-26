@@ -61,8 +61,8 @@ async def record_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if update.effective_chat.type == 'private':
             await update.message.reply_photo(
                
-                caption=UNAUTHORIZED_ERROR_TEXT
-                 photo=UNAUTHORIZED_IMAGE_URL,
+                caption=UNAUTHORIZED_ERROR_TEXT,
+                 photo=UNAUTHORIZED_IMAGE_URL
             )
         return
 
@@ -79,8 +79,8 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id != AUTHORIZED_GROUP_ID:
         await update.message.reply_photo(
            
-            caption=UNAUTHORIZED_ERROR_TEXT
-             photo=UNAUTHORIZED_IMAGE_URL,
+            caption=UNAUTHORIZED_ERROR_TEXT,
+             photo=UNAUTHORIZED_IMAGE_URL
         )
         return
 
