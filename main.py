@@ -42,7 +42,7 @@ UNAUTHORIZED_IMAGE_URL = "https://i.ibb.co/zWKH9qDH/MG-8095.jpg"
 # Emojisiz, sert ve net hata metni
 UNAUTHORIZED_ERROR_TEXT = (
     "Sadece ES JUSTO grubunda çalışacağını söylemiştim.\n"
-    "Eğer okuduğunu anlamadıysan aşağıdaki linke tıkla.\n"
+    "Eğer okuduğunu anlamadıysan aşağıdaki linke tıkla.\n\n"
     "https://www.mentalup.net/blog/zeka-gelistirici-oyunlar"
 )
 
@@ -118,7 +118,7 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     3: Özet içerisinde asla * (yıldız) işareti kullanma.
     4: Yazılanların hepsini 'o şunu dedi bu bunu dedi' gibi aynen yazmak yerine daha çok olay olarak özetle. Daha çok ince espri kat. 
     5: Bir kişinin ismi tek ya da iki harften oluşabilir örneğin 'F' veya 'E' ile diğer kişileri karıştırma,
-    6: özet maksimum 225 kelimelik olsun. Olayları çok uzatmadan özetle böylece Mümkün olduğunca daha fazla olaya ve kişiye değin.
+    6: özet maksimum 200 kelimelik olsun. Olayları 5 paragrafa bölerek okunabilirliği artır, paragrafların başında anlatılan olaya uygun emoji kullanabilirsin, olay anlatımını uzatmadan kısa kısa özetle böylece Mümkün olduğunca daha fazla olaya ve kişiye değinebilirsin.
     
     KONUŞMALAR:
     {full_text}
