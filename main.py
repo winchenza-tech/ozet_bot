@@ -145,8 +145,7 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # 1. Gemini'yi başlat
         gemini_task = asyncio.to_thread(call_gemini)
         
-        # 2. İlk Bekleme (2 Saniye)
-        await asyncio.sleep(2)
+      
         
         # Eğer bitmediyse 1. Mesajı Bas
         if not gemini_task.done():
