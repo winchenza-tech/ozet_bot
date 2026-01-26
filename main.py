@@ -29,7 +29,7 @@ def keep_alive():
 # --- 2. AYARLAR VE HAFIZA ---
 nest_asyncio.apply()
 
-# Token ve API Key (Burayı kontrol etmeyi unutma)
+# Token ve API Key (Senin düzenlediğin halleriyle bırakıldı)
 TELEGRAM_TOKEN = "8531416366:AAHRKn0pkd-wrRGeYafN7bB_vNNKjSaDr-k"
 GOOGLE_API_KEY = "AIzaSyBtAQLG5jw-nIG83Pa1w2oDi5GvOKZ-CPQ"
 
@@ -73,10 +73,9 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Geçici mesaj gönderilir
     status_msg = await update.message.reply_text("⏳ Yukarıdaki mesajları okuyorum. Lütfen bekle...")
 
-    # --- PROMPT HAZIRLIĞI ---
+    # --- PROMPT HAZIRLIĞI (Senin düzenlediğin metinler) ---
     full_text = "\n".join(list(group_history)[-count:])
     
-    # Gizem için dinamik isim kuralı (Dakika tek ise Kralicemiz)
     gizem_adi = "Kralicemiz Gizem" if now.minute % 2 != 0 else "Gizem"
 
     prompt = f"""
@@ -93,42 +92,33 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # --- GEMINI ÜRETİM ---
     try:
+        # HATA DÜZELTİLEN BÖLÜM: Safety settings tam kategori adlarıyla güncellendi
         response = client.models.generate_content(
             model='gemini-2.5-flash', 
             contents=prompt,
             config=types.GenerateContentConfig(
                 safety_settings=[
-                    
-                    types.SafetySetting(category='DANGEROUS_CONTENT', threshold='BLOCK_NONE'),
+                   
+                    types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE'),
                 ]
             )
         )
         
         # --- MESAJ YÖNETİMİ ---
-        # 1. "Bekleyin" mesajını siliyoruz
         await status_msg.delete()
-        
-        # 2. Özeti YENİ bir mesaj olarak gönderiyoruz
         await update.message.reply_text(f"📝 CHAT ÖZETİ:\n{response.text}")
-        
-        # Başarılı olursa süreyi kaydet
         last_usage[chat_id] = now
 
     except Exception as e:
         print(f"Hata Detayı: {e}")
-        # Hata olursa da "bekleyin" mesajını silip hatayı yeni mesajla bildiriyoruz
         await status_msg.delete()
         await update.message.reply_text(f"⚠️ Hata: {e}")
 
 # --- 4. ANA ÇALIŞTIRICI ---
 async def main():
-    # Flask'ı başlat
     keep_alive()
-    
-    # Telegram Botu Kur
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
-    # Handlerlar (Regex: /son200, /son400 ve @chat_ozet_bot desteği)
     application.add_handler(MessageHandler(
         filters.Regex(r'(?i)^/son(200|400)(@chat_ozet_bot)?$'), 
         summarize_command
@@ -142,7 +132,6 @@ async def main():
     await application.start()
     await application.updater.start_polling(drop_pending_updates=True)
     
-    # Uygulamanın kapanmaması için sonsuz döngü
     while True:
         await asyncio.sleep(3600)
 
