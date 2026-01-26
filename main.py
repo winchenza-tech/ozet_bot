@@ -10,7 +10,7 @@ from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, Comma
 from google import genai
 from google.genai import types
 
-
+# --- 1. WEB SUNUCUSU (7/24 AKTİFLİK İÇİN) ---
 flask_app = Flask('')
 
 @flask_app.route('/')
@@ -25,22 +25,22 @@ def keep_alive():
     t = Thread(target=run_flask)
     t.start()
 
-
+# --- 2. AYARLAR VE HAFIZA ---
 nest_asyncio.apply()
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
-
+# --- GRUP KİLİDİ ---
 AUTHORIZED_GROUP_ID = -1003297262036 
 
--
+# --- GÖRSEL VE HATA METİNLERİ ---
 UNAUTHORIZED_IMAGE_URL = "https://i.ibb.co/zTjGk8rv/MG-8095.jpg"
 
 UNAUTHORIZED_ERROR_TEXT = (
-    "Sadece ES JUSTO grubunda çalışacağını söyledik.\n\n"
+    "Sadece ES JUSTO grubunda çalışacağını söylemiştim.\n\n"
     "Okuduğun basit bir cümleyi anlamayacak kadar gerizekalı isen "
-    "altta verdiğim linkten beyin gelişim egzersizleri yapabilirsin.\n"
+    "aşağıda verdiğim linkten beyin gelişim egzersizleri yapabilirsin.\n"
     "https://www.mentalup.net/blog/zeka-gelistirici-oyunlar"
 )
 
@@ -50,7 +50,7 @@ group_history = deque(maxlen=350)
 last_usage = {} 
 COOLDOWN_MINUTES = 10
 
-
+# --- 3. BOT FONKSİYONLARI ---
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Bot özelden başlatıldığında (/start) hata mesajını basar."""
@@ -139,8 +139,7 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # --- PARALEL ANİMASYON DÖNGÜSÜ ---
     try:
-        # DÜZELTME: asyncio.to_thread bir coroutine döner. 
-        # .done() metodunu kullanabilmek için onu create_task ile sarmalıyoruz.
+        # Gemini'yi Arka Planda Başlat
         gemini_coro = asyncio.to_thread(call_gemini)
         gemini_task = asyncio.create_task(gemini_coro)
         
@@ -211,4 +210,3 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         pass
-
