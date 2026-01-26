@@ -30,7 +30,7 @@ def keep_alive():
 nest_asyncio.apply()
 
 # Token ve API Key (Senin düzenlediğin halleriyle bırakıldı)
-TELEGRAM_TOKEN = "8531416366:AAHRKn0pkd-wrRGeYafN7bB_vNNKjSaDr-k"
+TELEGRAM_TOKEN = "8531416366:AAEQQNbK1leXTuNZFK0oMViljc_ySvyNolY"
 GOOGLE_API_KEY = "AIzaSyBtAQLG5jw-nIG83Pa1w2oDi5GvOKZ-CPQ"
 
 client = genai.Client(api_key=GOOGLE_API_KEY)
