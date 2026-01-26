@@ -99,7 +99,7 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 4. ÜRETİM
     try:
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-2.5-flash',
             contents=prompt
         )
         await status_msg.edit_text(f"📝 CHAT ÖZETİ:\n{response.text}")
