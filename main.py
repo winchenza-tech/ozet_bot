@@ -37,11 +37,12 @@ AUTHORIZED_GROUP_ID = -1003297262036
 
 # Buraya GitHub'a yüklediğin görselin "Raw" linkini yapıştırabilirsin.
 # Şimdilik örnek şeffaf görsel linki duruyor.
-UNAUTHORIZED_IMAGE_URL = "https://i.ibb.co/Cp2x2NqY/MG-8092.png"
+UNAUTHORIZED_IMAGE_URL = "https://i.ibb.co/zWKH9qDH/MG-8095.jpg"
 
 # Emojisiz, sert ve net hata metni
 UNAUTHORIZED_ERROR_TEXT = (
-    "Sadece ES JUSTO grubunda çalışacağını söyledik.\n\n"
+    "Sadece ES JUSTO grubunda çalışacağını söyledimiştim.\n\n"
+    "Eğer okuduğunu anlamadıysan aşağıdaki linke tıkla."
     "https://www.mentalup.net/blog/zeka-gelistirici-oyunlar"
 )
 
