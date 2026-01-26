@@ -155,9 +155,10 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except:
                 pass
 
-         await asyncio.sleep(2)
+        
 
           if not gemini_task.done():
+               await asyncio.sleep(2)
             try:
                 await status_msg.edit_text("⚡Nöral ağlar verileri işliyor...")
             except:
