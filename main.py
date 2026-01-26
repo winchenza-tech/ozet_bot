@@ -35,7 +35,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
 # --- GRUP KİLİDİ VE ÖZEL TEXTLER ---
 AUTHORIZED_GROUP_ID = -1003297262036 
-UNAUTHORIZED_ERROR_TEXT = "Sadece ES JUSTO grubunda çalışacağını söyledik. Okuduğun basit bir cümleyi anlamayacak kadar gerizekalı isen altta verdiğim linkten beyin gelişim egzersşzleri yapabilirsin.
+UNAUTHORIZED_ERROR_TEXT = "Sadece ES JUSTO grubunda çalışacağını söyledik. Okuduğun basit bir cümleyi anlamayacak kadar gerizekalı isen altta verdiğim linkten beyin gelişim egzersizleri yapabilirsin.
 \n https://www.mentalup.net/blog/zeka-gelistirici-oyunlar
 "
 
