@@ -29,21 +29,33 @@ def keep_alive():
 # --- 2. AYARLAR VE HAFIZA ---
 nest_asyncio.apply()
 
-# Token ve API Key (Senin düzenlediğin halleriyle bırakıldı)
+# Hassas veriler Render Environment'tan çekiliyor
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
+# --- GRUP KİLİDİ VE ÖZEL TEXTLER ---
+AUTHORIZED_GROUP_ID = -1003297262036 
+UNAUTHORIZED_ERROR_TEXT = "Sadece ES JUSTO grubunda çalışacağını söyledik. Okuduğun basit bir cümleyi anlamayacak kadar gerizekalı isen altta verdiğim linkten beyin gelişim egzersşzleri yapabilirsin.
+\n https://www.mentalup.net/blog/zeka-gelistirici-oyunlar
+"
 
 client = genai.Client(api_key=GOOGLE_API_KEY)
 
-group_history = deque(maxlen=400)
+group_history = deque(maxlen=350)
 last_usage = {} 
 COOLDOWN_MINUTES = 10
 
 # --- 3. BOT FONKSİYONLARI ---
 
 async def record_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Gruptaki normal mesajları hafızaya kaydeder."""
+    """Gruptaki mesajları kaydeder, dışarıya hata basar."""
+    # Güvenlik Kontrolü: Yetkili grup değilse
+    if update.effective_chat.id != AUTHORIZED_GROUP_ID:
+        # Sadece Özel Mesajda (DM) hata metnini bas, diğer gruplarda sessiz kal
+        if update.effective_chat.type == 'private':
+            await update.message.reply_text(UNAUTHORIZED_ERROR_TEXT)
+        return
+
     if update.message and update.message.text:
         user = update.effective_user.first_name
         text = update.message.text
@@ -51,6 +63,12 @@ async def record_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Özet komutunu işler."""
+    
+    # Güvenlik Kontrolü: Yetkisiz yerden komut verilirse
+    if update.effective_chat.id != AUTHORIZED_GROUP_ID:
+        await update.message.reply_text(UNAUTHORIZED_ERROR_TEXT)
+        return
+
     chat_id = update.effective_chat.id
     now = datetime.datetime.now()
 
@@ -63,7 +81,7 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"🛑 Henüz hazır değilim! {dakika} dk {saniye} sn bekle. Zenithar'ı kızdırmamalıyım.")
             return
 
-    # --- KOMUT VE MESAJ SAYISI ANALİZİ ---
+    # --- KOMUT ANALİZİ ---
     msg_text = update.message.text.lower()
     count = 300 if "300" in msg_text else 200
 
@@ -71,29 +89,27 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Hafızada yeterli mesaj yok (En az 10 mesaj gerekli).")
         return
 
-    # Geçici mesaj gönderilir
+    # Bekleme mesajı
     status_msg = await update.message.reply_text("⏳ Yukarıdaki mesajları okuyorum. Lütfen bekle...")
 
-    # --- PROMPT HAZIRLIĞI (Senin düzenlediğin metinler) ---
+    # --- PROMPT HAZIRLIĞI ---
     full_text = "\n".join(list(group_history)[-count:])
-    
-    
+   
 
     prompt = f"""
-    Aşağıdaki konuşmaları samimi ve esprili bir dille özetle. Özel kurallar:
+    Aşağıdaki konuşmaları samimi, esprili ve muzip bir dille özetle. Özel kurallar:
     1: Mesajlar arasında Zenithar, Gizem veya Cıtkırıldı varsa bunları özete mutlaka dahil et ama hep de onlardan bahsetme diğerleriyle eşit derecede olsun. Bu özeti bana verdiğin saat tek sayı ise ve özette Gizem varsa ondan Kralicemiz Gizem diyerek bahset, Çift sayı ise sadece Gizem diyebilirsin.
-    2: Özette Felicia ya da Tuna varsa onlara alaycı ve aşağılayıcı şekilde laf sok ama abartma sadece biraz dokundur ve laf sokma yaptığından özette sakın bahsetme. Eğer yoklarsa isimlerini anma.
-    3: Özet içerisinde asla '*'(yıldız) işareti kullanma.
+    2: Özette Felicia ya da Tuna varsa onlarla dalga geç ve onlara biraz laf sok ama abartma sadece hafif dokundur. Eğer yoklarsa isimlerini anma.
+    3: Özet içerisinde asla * (yıldız) işareti kullanma.
     4: Yazılanların hepsini 'o şunu dedi bu bunu dedi' gibi aynen yazmak yerine daha çok olay olarak özetle. Daha çok ince espri kat. 
-    5: Bir kişinin ismi tek harf ya da nokta '.' şeklinde olabilir örneğin 'F' veya 'E' ismindeki kullanıcılar ile başkalarını karıştırma, özet maksimum 300 kelimelik olsun.
-    
+    5: Bir kişinin ismi tek ya da iki harften oluşabilir örneğin 'F' veya 'E' kullanıcıları ile başkalarını karıştırma, 
+    6:özet maksimum 225 kelimelik olsun. Özette olayları kısa şekilde anlatırken mümkün olduğunca daha çok olaya ve kişiye değin.
     KONUŞMALAR:
     {full_text}
     """
 
-    # --- GEMINI ÜRETİM ---
+    # --- GEMINI ÜRETİM (SANSÜRSÜZ) ---
     try:
-        # HATA DÜZELTİLEN BÖLÜM: Safety settings tam kategori adlarıyla güncellendi
         response = client.models.generate_content(
             model='gemini-2.5-flash', 
             contents=prompt,
@@ -105,29 +121,36 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         )
         
-        # --- MESAJ YÖNETİMİ ---
+        # Bekleme mesajını sil ve özeti taze bir mesaj olarak at
         await status_msg.delete()
         await update.message.reply_text(f"📝 CHAT ÖZETİ:\n{response.text}")
+        
         last_usage[chat_id] = now
 
     except Exception as e:
         print(f"Hata Detayı: {e}")
-        await status_msg.delete()
+        if status_msg: await status_msg.delete()
         await update.message.reply_text(f"⚠️ Hata: {e}")
 
 # --- 4. ANA ÇALIŞTIRICI ---
 async def main():
     keep_alive()
+    
+    if not TELEGRAM_TOKEN or not GOOGLE_API_KEY:
+        print("❌ HATA: Environment Variables eksik!")
+        return
+
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
+    # Handlerlar
     application.add_handler(MessageHandler(
-        filters.Regex(r'(?i)^/son(200|400)(@chat_ozet_bot)?$'), 
+        filters.Regex(r'(?i)^/son(200|300)(@chat_ozet_bot)?$'), 
         summarize_command
     ))
     
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), record_message))
 
-    print("🚀 Zenithar Nihai Sürüm Aktif. 7/24 Render dinlemesinde...")
+    print(f"🚀 Zenithar Nihai Sürüm Aktif. Yetkili Grup: {AUTHORIZED_GROUP_ID}")
     
     await application.initialize()
     await application.start()
@@ -140,4 +163,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
-        print("Sistem kapatıldı.")
+        pass
