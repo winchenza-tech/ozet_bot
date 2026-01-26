@@ -77,15 +77,15 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # --- PROMPT HAZIRLIĞI (Senin düzenlediğin metinler) ---
     full_text = "\n".join(list(group_history)[-count:])
     
-    gizem_adi = "Kralicemiz Gizem" if now.minute % 2 != 0 else "Gizem"
+    
 
     prompt = f"""
     Aşağıdaki konuşmaları samimi ve esprili bir dille özetle. Özel kurallar:
     1: Mesajlar arasında Zenithar, Gizem veya Cıtkırıldı varsa bunları özete mutlaka dahil et ama hep de onlardan bahsetme diğerleriyle eşit derecede olsun. Bu özeti bana verdiğin saat tek sayı ise ve özette Gizem varsa ondan Kralicemiz Gizem diyerek bahset, Çift sayı ise sadece Gizem diyebilirsin.
-    2: Özette Felicia ya da Tuna varsa onlarla dalga geç ve onlara biraz laf sok ama abartma sadece hafif dokundur. Eğer yoklarsa isimlerini anma.
-    3: Özet içerisinde asla *(yıldız) işareti kullanma.
+    2: Özette Felicia ya da Tuna varsa onlara alaycı ve aşağılayıcı şekilde laf sok ama abartma sadece biraz dokundur ve laf sokma yaptığından özette sakın bahsetme. Eğer yoklarsa isimlerini anma.
+    3: Özet içerisinde asla '*'(yıldız) işareti kullanma.
     4: Yazılanların hepsini 'o şunu dedi bu bunu dedi' gibi aynen yazmak yerine daha çok olay olarak özetle. Daha çok ince espri kat. 
-    5: Bir kişinin ismi tek harften oluşabilir örneğin 'F' ile 'Felicia'yı karıştırma, özet maksimum 500 kelimelik olsun.
+    5: Bir kişinin ismi tek harf ya da nokta '.' şeklinde olabilir örneğin 'F' veya 'E' ismindeki kullanıcılar ile başkalarını karıştırma, özet maksimum 300 kelimelik olsun.
     
     KONUŞMALAR:
     {full_text}
