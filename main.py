@@ -1,4 +1,4 @@
-zzimport asyncio
+import asyncio
 import nest_asyncio
 import datetime
 import os
@@ -36,7 +36,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
 client = genai.Client(api_key=GOOGLE_API_KEY)
 
-group_history = deque(maxlen=450)
+group_history = deque(maxlen=400)
 last_usage = {} 
 COOLDOWN_MINUTES = 10
 
@@ -65,7 +65,7 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # --- KOMUT VE MESAJ SAYISI ANALİZİ ---
     msg_text = update.message.text.lower()
-    count = 400 if "400" in msg_text else 200
+    count = 300 if "300" in msg_text else 200
 
     if len(group_history) < 10:
         await update.message.reply_text("❌ Hafızada yeterli mesaj yok (En az 10 mesaj gerekli).")
