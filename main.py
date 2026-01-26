@@ -141,31 +141,33 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     # --- PARALEL İŞLEM ---
-    try:
-        # Gemini arka planda başlasın
+        try:
+        # 1. Gemini'yi başlat
         gemini_task = asyncio.to_thread(call_gemini)
         
-        # Animasyon için bekle
+        # 2. İlk Bekleme (2 Saniye)
         await asyncio.sleep(2)
         
-        # Gemini bitmediyse mesajı değiştir
+        # Eğer bitmediyse 1. Mesajı Bas
         if not gemini_task.done():
             try:
                 await status_msg.edit_text("🤖 Cıtkırıldroid Bot yapay zeka entegrasyonunu aktif hale getiriyor...")
             except:
                 pass
 
-        
+        # 3. İkinci Bekleme (Hala bitmediyse 2 Saniye daha bekle)
+        if not gemini_task.done():
+            await asyncio.sleep(2)
+            # Bekleme bittikten sonra HALA bitmediyse mesajı değiştir
+            if not gemini_task.done():
+                try:
+                    await status_msg.edit_text("⚡Nöral ağlar verileri işliyor...")
+                except:
+                    pass
 
-          if not gemini_task.done():
-               await asyncio.sleep(2)
-            try:
-                await status_msg.edit_text("⚡Nöral ağlar verileri işliyor...")
-            except:
-                pass
-
-        # Sonucu bekle ve al
+        # 4. Sonucu al
         response = await gemini_task
+
         
         # Yazdır
         await status_msg.delete()
