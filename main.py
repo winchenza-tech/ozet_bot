@@ -1,4 +1,4 @@
-import asyncio
+zzimport asyncio
 import nest_asyncio
 import datetime
 import os
@@ -30,7 +30,7 @@ def keep_alive():
 nest_asyncio.apply()
 
 # Token ve API Key (Senin düzenlediğin halleriyle bırakıldı)
-TELEGRAM_TOKEN = "8531416366:AAEQQNbK1leXTuNZFK0oMViljc_ySvyNolY"
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
 
