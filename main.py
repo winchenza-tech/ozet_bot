@@ -128,7 +128,7 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     def call_gemini():
         return client.models.generate_content(
-            model='gemini-2.0-flash', 
+            model='gemini-2.5-flash', 
             contents=prompt,
             config=types.GenerateContentConfig(
                 safety_settings=[
