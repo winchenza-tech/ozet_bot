@@ -6,11 +6,11 @@ from collections import deque
 from flask import Flask
 from threading import Thread
 from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
+from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, CommandHandler, filters
 from google import genai
 from google.genai import types
 
-# --- 1. WEB SUNUCUSU (7/24 UYANIK TUTMA) ---
+# --- 1. WEB SUNUCUSU ---
 flask_app = Flask('')
 
 @flask_app.route('/')
@@ -28,60 +28,64 @@ def keep_alive():
 # --- 2. AYARLAR VE HAFIZA ---
 nest_asyncio.apply()
 
-# Hassas veriler Render Environment'tan çekiliyor
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
-# --- GRUP KİLİDİ VE HATA MESAJI AYARLARI ---
+# --- GRUP KİLİDİ ---
 AUTHORIZED_GROUP_ID = -1003297262036 
 
-# Buraya GitHub'a yüklediğin görselin "Raw" linkini yapıştırabilirsin.
-# Şimdilik örnek şeffaf görsel linki duruyor.
-UNAUTHORIZED_IMAGE_URL = "https://i.ibb.co/zWKH9qDH/MG-8095.jpg"
+# --- GÖRSEL VE TEXTLER ---
+UNAUTHORIZED_IMAGE_URL = "https://i.ibb.co/zTjGk8rv/MG-8095.jpg"
 
-# Emojisiz, sert ve net hata metni
 UNAUTHORIZED_ERROR_TEXT = (
     "Sadece ES JUSTO grubunda çalışacağını söylemiştim.\n"
     "Eğer okuduğunu anlamadıysan aşağıdaki linke tıkla.\n\n"
     "https://www.mentalup.net/blog/zeka-gelistirici-oyunlar"
 )
 
+
 client = genai.Client(api_key=GOOGLE_API_KEY)
 
-group_history = deque(maxlen=300)
+group_history = deque(maxlen=350)
 last_usage = {} 
 COOLDOWN_MINUTES = 10
 
 # --- 3. BOT FONKSİYONLARI ---
 
-async def record_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-   
-    # Güvenlik Kontrolü
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Bot özelden başlatıldığında (/start) hata mesajını basar."""
+    # Start komutu yetkili grup dışında (özellikle DM'de) çalıştırılırsa:
     if update.effective_chat.id != AUTHORIZED_GROUP_ID:
-        # Sadece özel mesajda (DM) görsel + metin ile cevap ver
+        await update.message.reply_photo(
+            photo=UNAUTHORIZED_IMAGE_URL,
+            caption=UNAUTHORIZED_ERROR_TEXT
+        )
+    else:
+        # Eğer yetkili grupta /start denirse (Opsiyonel: Sessiz kalabilir veya selam verebilir)
+        pass 
+
+async def record_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Yetkisiz kullanımı engeller ve mesajları kaydeder."""
+    if update.effective_chat.id != AUTHORIZED_GROUP_ID:
         if update.effective_chat.type == 'private':
             await update.message.reply_photo(
-               
-                caption=UNAUTHORIZED_ERROR_TEXT,
-                 photo=UNAUTHORIZED_IMAGE_URL
+                photo=UNAUTHORIZED_IMAGE_URL,
+                caption=UNAUTHORIZED_ERROR_TEXT
             )
         return
 
-    # Mesaj kaydetme (Sadece yetkili grupta)
     if update.message and update.message.text:
         user = update.effective_user.first_name
         text = update.message.text
         group_history.append(f"{user}: {text}")
 
 async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Özet komutunu işler."""
+    """Eşzamanlı (Parallel) çalışan özet sistemi."""
     
-    # Güvenlik Kontrolü
     if update.effective_chat.id != AUTHORIZED_GROUP_ID:
         await update.message.reply_photo(
-           
-            caption=UNAUTHORIZED_ERROR_TEXT,
-             photo=UNAUTHORIZED_IMAGE_URL
+            photo=UNAUTHORIZED_IMAGE_URL,
+            caption=UNAUTHORIZED_ERROR_TEXT
         )
         return
 
@@ -97,7 +101,6 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"🛑 Henüz hazır değilim! {dakika} dk {saniye} sn bekle. Zenithar'ı kızdırmamalıyım.")
             return
 
-    # --- KOMUT ANALİZİ ---
     msg_text = update.message.text.lower()
     count = 300 if "300" in msg_text else 200
 
@@ -105,47 +108,76 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Hafızada yeterli mesaj yok (En az 10 mesaj gerekli).")
         return
 
+    # 1. Aşama: İlk Mesajı Gönder
     status_msg = await update.message.reply_text("⏳ Yukarıdaki mesajları okuyorum. Lütfen bekle...")
 
-    # --- PROMPT ---
+    # --- GEMINI ÇAĞRISI HAZIRLIĞI ---
     full_text = "\n".join(list(group_history)[-count:])
    
 
     prompt = f"""
-    Aşağıdaki konuşmaları samimi, esprili ve muzip bir dille özetle. Özel kurallar:
+     Aşağıdaki konuşmaları samimi, esprili ve muzip bir dille özetle. Özel kurallar:
     1: Mesajlar arasında Zenithar, Gizem veya Cıtkırıldı varsa bunları özete mutlaka dahil et ama hep de onlardan bahsetme diğerleriyle eşit derecede olsun. Bu özeti bana verdiğin saat tek sayı ise ve özette Gizem varsa ondan Kralicemiz Gizem diyerek bahset, Çift sayı ise sadece Gizem diyebilirsin.
     2: Özette Felicia ya da Tuna varsa onları alaya al ve onlara biraz laf sok ama abartma sadece hafif dokundur. Eğer yoklarsa isimlerini anma.
     3: Özet içerisinde asla * (yıldız) işareti kullanma.
     4: Yazılanların hepsini 'o şunu dedi bu bunu dedi' gibi aynen yazmak yerine daha çok olay olarak özetle. Daha çok ince espri kat. 
     5: Bir kişinin ismi tek ya da iki harften oluşabilir örneğin 'F' veya 'E' ile diğer kişileri karıştırma,
-    6: özet maksimum 200 kelimelik olsun. Olayları 5 paragrafa bölerek okunabilirliği artır, paragrafların başında anlatılan olaya uygun emoji kullanabilirsin, olay anlatımını uzatmadan kısa kısa özetle böylece Mümkün olduğunca daha fazla olaya ve kişiye değinebilirsin.
+    6: özet maksimum 200 kelimelik olsun. Olayları 5 paragrafa bölerek okunabilirliği artır, paragrafların başında anlatılan olaya uygun emoji kullanabilirsin, olayların anlatımını uzatmadan kısa kısa özetle böylece Mümkün olduğunca daha fazla olaya ve kişiye değinebilirsin.
     
     KONUŞMALAR:
     {full_text}
     """
 
-    # --- GEMINI ÜRETİM (SANSÜRSÜZ) ---
-    try:
-        response = client.models.generate_content(
+    def call_gemini():
+        return client.models.generate_content(
             model='gemini-2.5-flash', 
             contents=prompt,
             config=types.GenerateContentConfig(
                 safety_settings=[
-                    
+                   
                     types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE'),
                 ]
             )
         )
+
+    # --- PARALEL İŞLEM ---
+    try:
+        # Gemini arka planda başlasın
+        gemini_task = asyncio.to_thread(call_gemini)
         
-        # Bekleme mesajını sil ve özeti gönder
+        # Animasyon için bekle
+        await asyncio.sleep(2)
+        
+        # Gemini bitmediyse mesajı değiştir
+        if not gemini_task.done():
+            try:
+                await status_msg.edit_text("🤖 Cıtkırıldroid Bot yapay zeka entegrasyonunu aktif hale getiriyor...")
+            except:
+                pass
+
+         await asyncio.sleep(2)
+
+          if not gemini_task.done():
+            try:
+                await status_msg.edit_text("⚡Nöral ağlar verileri işliyor...")
+            except:
+                pass
+
+        # Sonucu bekle ve al
+        response = await gemini_task
+        
+        # Yazdır
         await status_msg.delete()
         await update.message.reply_text(f"📝 CHAT ÖZETİ:\n{response.text}")
         
         last_usage[chat_id] = now
 
     except Exception as e:
-        print(f"Hata Detayı: {e}")
-        if status_msg: await status_msg.delete()
+        print(f"Hata: {e}")
+        try:
+            await status_msg.delete()
+        except:
+            pass
         await update.message.reply_text(f"⚠️ Hata: {e}")
 
 # --- 4. ANA ÇALIŞTIRICI ---
@@ -153,20 +185,26 @@ async def main():
     keep_alive()
     
     if not TELEGRAM_TOKEN or not GOOGLE_API_KEY:
-        print("❌ HATA: Environment Değişkenleri (TOKEN veya KEY) eksik!")
+        print("❌ HATA: Environment Değişkenleri Eksik!")
         return
 
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
-    # Handlerlar
+    # --- HANDLER TANIMLAMALARI ---
+    
+    # 1. /start Komutu (Yeni Eklendi)
+    application.add_handler(CommandHandler("start", start_command))
+    
+    # 2. Özet Komutları
     application.add_handler(MessageHandler(
         filters.Regex(r'(?i)^/son(200|300)(@chat_ozet_bot)?$'), 
         summarize_command
     ))
     
+    # 3. Normal Mesaj Kaydı
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), record_message))
 
-    print(f"🚀 Zenithar Nihai Sürüm Aktif. Hedef Grup: {AUTHORIZED_GROUP_ID}")
+    print(f"🚀 Zenithar v1.9 (Start Destekli) Aktif!")
     
     await application.initialize()
     await application.start()
