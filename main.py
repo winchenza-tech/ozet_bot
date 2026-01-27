@@ -282,7 +282,7 @@ async def main():
         send_gundem_haberi,
         'cron',
         hour='1,3,9,11,12,13,14,15,16,17,18,19,20,21,22,23',
-        minute=45,
+        minute=10,
         args=[application]
     )
     
