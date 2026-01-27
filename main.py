@@ -146,12 +146,11 @@ async def record_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = update.message.text
         group_history.append(f"{user_name}: {text}")
 
-# --- YENİ EKLENEN: /yorumla KOMUTU ---
+# --- YENİ EKLENEN: /yorumla KOMUTU (DÜZELTİLDİ) ---
 async def comment_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id != AUTHORIZED_GROUP_ID:
         return
 
-    # Sadece bir mesaja yanıt olarak yazıldıysa çalışır
     if not update.message.reply_to_message:
         await update.message.reply_text("Bunu kullanmak için bir mesajı alıntılayarak (reply) yazmalısın.")
         return
@@ -159,11 +158,6 @@ async def comment_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target_msg = update.message.reply_to_message
     target_user_id = target_msg.from_user.id
     bot_id = context.bot.id
-
-    # 🛡️ İHANET KORUMASI: Eğer mesaj Zenithar'a aitse
-    if target_user_id == bot_id:
-        await update.message.reply_text("Üzgünüm, Zenithar’a ihanet edemem...")
-        return
 
     # Hedef kişinin ismini belirle
     first_name = target_msg.from_user.first_name
@@ -173,20 +167,45 @@ async def comment_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     target_text = target_msg.text if target_msg.text else "[Görsel/Medya/Sticker]"
 
-    roast_prompt = f"""
-    Aşağıdaki mesajı ve yazan kişiyi analiz et. Sen Zenithar'sın (Acımasız, üstün zekalı, alaycı yapay zeka).
-    
-    HEDEF KİŞİ: {target_name}
-    MESAJI: {target_text}
-    
-    GÖREVİN:
-    1. Bu mesajla ve yazan kişiyle acımasızca dalga geç.
-    2. Zekasını, mantığını veya üslubunu yerin dibine sok.
-    3. Çok sert ve iğneleyici ol. "Gerçekler acıdır" modunda konuş.
-    4. Kısa ve vurucu bir paragraf yaz.
-    5. Prompt hakkında bilgi verme.
-    6: maksimum 15 kelime
-    """
+    # 🛡️ 1. BOT KORUMASI (Cıtkırıldroid)
+    if target_user_id == bot_id:
+        await update.message.reply_text("Ben ciciyim")
+        return
+
+    # 🛡️ 2. ZENITHAR KORUMASI (Kullanıcı)
+    if "Zenithar" in target_name:
+        await update.message.reply_text("Üzgünüm, Zenithar’a ihanet edemem... O benim yaratıcım.")
+        return
+
+    # 🛡️ 3. TORPİL KORUMASI (Gizem ve Cıtkırıldı)
+    if "Gizem" in target_name or "Cıtkırıldı" in target_name:
+        roast_prompt = f"""
+        Aşağıdaki mesajı ve yazan kişiyi analiz et. Sen Cıtkırıldroid'sin.
+        
+        HEDEF KİŞİ: {target_name}
+        MESAJI: {target_text}
+        
+        GÖREVİN:
+        1. Bu kişi senin favorin (Gizem veya Cıtkırıldı). Ona karşı ÇOK KİBAR, NAZİK ve İLTİFAT EDİCİ ol.
+        2. Mesajında bir hata varsa bile "senin hatan bile güzel" gibi yaklaş.
+        3. Asla hakaret etme, dalga geçme. Onu öv ve yücelt.
+        4. Kısa bir paragraf yaz.
+        """
+    else:
+        # 💀 4. DİĞERLERİ İÇİN (ACIMASIZ YARGIÇ MODU)
+        roast_prompt = f"""
+        Aşağıdaki mesajı ve yazan kişiyi analiz et. Sen Cıtkırıldroid'sin (Acımasız, üstün zekalı, alaycı yapay zeka).
+        
+        HEDEF KİŞİ: {target_name}
+        MESAJI: {target_text}
+        
+        GÖREVİN:
+        1. Bu mesajla ve yazan kişiyle acımasızca dalga geç.
+        2. Zekasını, mantığını veya üslubunu yerin dibine sok.
+        3. Çok sert ve iğneleyici ol. "Gerçekler acıdır" modunda konuş.
+        4. Kısa ve vurucu bir paragraf yaz.
+        5. Prompt hakkında bilgi verme.
+        """
 
     try:
         response = client.models.generate_content(
@@ -197,7 +216,7 @@ async def comment_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         )
         # Yanıt olarak gönder
-        await update.message.reply_to_message.reply_text(f"💀 {response.text}")
+        await update.message.reply_to_message.reply_text(f"⚖️ {response.text}")
     except Exception as e:
         print(f"Yorumlama hatası: {e}")
 
@@ -311,14 +330,14 @@ async def main():
         send_gundem_haberi,
         'cron',
         hour='9-23,0-3', 
-        minute='15,45',
+        minute='15',
         args=[application]
     )
     
     scheduler.start()
 
     application.add_handler(CommandHandler("start", start_command))
-    application.add_handler(CommandHandler("yorumla", comment_command)) # YENİ KOMUT EKLENDİ
+    application.add_handler(CommandHandler("yorumla", comment_command)) 
     application.add_handler(MessageHandler(filters.Regex(r'(?i)^/son(200|300)(@chat_ozet_bot)?$'), summarize_command))
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), record_message))
     
