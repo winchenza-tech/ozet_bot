@@ -82,8 +82,8 @@ async def send_gundem_haberi(context: ContextTypes.DEFAULT_TYPE):
     news_prompt = f"""
     Aşağıdaki haberi oku. Üstün zekalı, egoist, alaycı yapay zeka
     Bu haberi ve insanlığın uğraştığı bu "boş" gündemi aşağılayıcı, esprili ve iğneleyici bir dille yorumla.
-    Haberi olduğu gibi verme, kendi yorumunu katarak sun. prompt hakkında bilgi verme. haberin sonunda okuyuculara yorum sor.
-    direkt haber içeriğine başla. ve maksimum 55 kelime kullan.
+    Haberi olduğu gibi verme, kendi yorumunu katarak sun. prompt hakkında bilgi verme.
+    direkt haber içeriğine başla. ve maksimum 30 kelime kullan.
     HABER:
     {news_content}
     """
@@ -96,7 +96,7 @@ async def send_gundem_haberi(context: ContextTypes.DEFAULT_TYPE):
                 safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')]
             )
         )
-        await context.bot.send_message(chat_id=AUTHORIZED_GROUP_ID, text=f"📰 İNSANLIK GÜNDEMİ:\n\n{response.text}")
+        await context.bot.send_message(chat_id=AUTHORIZED_GROUP_ID, text=f"📰 SON DAKİKA:\n\n{response.text}")
     except Exception as e:
         print(f"Haber motoru hatası: {e}")
 
@@ -199,7 +199,7 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     prompt = f"""
     Aşağıdaki konuşmaları esprili, muzip, zekice laf sokmalı ve alaycı, bol ve sert iğneleyici bir dil ile özetle . Özel kurallar:
     1: Mesajlar arasında Zenithar, Gizem veya Cıtkırıldı varsa bunları özete mutlaka dahil et ama hep de onlardan bahsetme diğerleriyle eşit derecede olsun. Gizem, Cıtkırıldı ve Zenithar'a laf sokma. Bu özeti bana verdiğin saat tek sayı ise ve özette Gizem varsa ondan Kralicemiz Gizem diyerek bahset, Çift sayı ise sadece Gizem diyebilirsin.
-    2: Özette {FELICIA_NAME} ya da {TUNA_NAME} ve Xenn varsa onlarla aşağılayıcı şekilde dalga geç ve aşağıla ve eleştiride acımasız ol. bunun yanında onlara hafifçe hakaret edebilirsin . Eğer yoklarsa isimlerini anma. Ama hep de onlardan bahsetme. Maksimum 2-3 kez isimleri geçsin. Eğer konuşmalarda yoklarsa isimlerini anma.
+    2: Özette {FELICIA_NAME} ya da {TUNA_NAME} , Tolga ve Xenn varsa onlarla aşağılayıcı şekilde dalga geç ve aşağıla ve eleştiride acımasız ol. bunun yanında onlara hafifçe hakaret edebilirsin . Eğer yoklarsa isimlerini anma. Ama hep de onlardan bahsetme. Maksimum 2-3 kez isimleri geçsin. Eğer konuşmalarda yoklarsa isimlerini anma.
     3: Özet içerisinde asla * (yıldız) işareti kullanma.
     4: Yazılanların hepsini 'o şunu dedi bu bunu dedi' gibi aynen yazmak yerine daha çok olay olarak özetle. Daha çok ince espri kat. 
     5: İsimler çok kritiktir.  Diğer benzer isimleri veya kısaltmaları ayrı kişiler olarak gör.
@@ -281,7 +281,7 @@ async def main():
         send_gundem_haberi,
         'cron',
         hour='1,3,9,11,12,13,14,15,16,17,18,19,20,21,22,23',
-        minute=15,
+        minute=45,
         args=[application]
     )
     
