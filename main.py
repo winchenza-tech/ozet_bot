@@ -108,7 +108,7 @@ async def send_gundem_haberi(context: ContextTypes.DEFAULT_TYPE):
                 safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')]
             )
         )
-        await context.bot.send_message(chat_id=AUTHORIZED_GROUP_ID, text=f"📰 SON DAKİKA:\n\n{response.text}")
+        await context.bot.send_message(chat_id=AUTHORIZED_GROUP_ID, text=f"📰 SON DAKİKA:\n{response.text}")
     except Exception as e:
         print(f"Haber motoru hatası: {e}")
 
@@ -295,7 +295,7 @@ async def main():
         send_gundem_haberi,
         'cron',
         hour='9-23,0-3', 
-        minute='15',
+        minute='10,35',
         args=[application]
     )
     
