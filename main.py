@@ -270,8 +270,8 @@ async def main():
     scheduler.add_job(
         send_kaos_sorusu, 
         'cron', 
-        hour='0,2,8,10,12,13,14,16,18,19,20,21,22', 
-        minute=20,
+        hour='0,2,8,10,12,13,14,16,18,19,20,21,22,23', 
+        minute=30,
         args=[application]
     )
 
@@ -281,7 +281,7 @@ async def main():
         send_gundem_haberi,
         'cron',
         hour='1,3,9,11,13,15,17,19,20,21,22,23',
-        minute=00,
+        minute=25,
         args=[application]
     )
     
