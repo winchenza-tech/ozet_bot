@@ -221,7 +221,7 @@ async def main():
         send_kaos_sorusu, 
         'cron', 
         hour='0,2,8,10,12,13,14,16,18,20,22', 
-        minute=30,
+        minute=50,
         args=[application]
     )
     
