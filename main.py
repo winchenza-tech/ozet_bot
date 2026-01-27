@@ -106,7 +106,7 @@ async def send_kaos_sorusu(context: ContextTypes.DEFAULT_TYPE):
         return # Yeterli konuşma yoksa fitne çıkarmaz
 
     # Son 50 mesajı analiz için alıyoruz
-    recent_context = "\n".join(list(group_history)[-50:])
+    recent_context = "\n".join(list(group_history)[-30:])
     
     kaos_prompt = f"""
     Aşağıdaki konuşmaları oku ve grubun o anki havasını, samimiyetini veya tartışılan konuları analiz et ama yazma.
@@ -270,8 +270,8 @@ async def main():
     scheduler.add_job(
         send_kaos_sorusu, 
         'cron', 
-        hour='0,2,8,10,12,13,14,16,18,19,20,22', 
-        minute=50,
+        hour='0,2,8,10,12,13,14,16,18,19,20,21,22', 
+        minute=20,
         args=[application]
     )
 
@@ -280,7 +280,7 @@ async def main():
     scheduler.add_job(
         send_gundem_haberi,
         'cron',
-        hour='1,3,9,11,13,15,17,19,20,21,23',
+        hour='1,3,9,11,13,15,17,19,20,21,22,23',
         minute=00,
         args=[application]
     )
