@@ -84,7 +84,7 @@ async def send_gundem_haberi(context: ContextTypes.DEFAULT_TYPE):
     Aşağıdaki haberi oku. Üstün zekalı, egoist, alaycı yapay zeka
     Bu haberi ve insanlığın uğraştığı bu "boş" gündemi aşağılayıcı, esprili ve iğneleyici bir dille yorumla.
     Haberi olduğu gibi verme, kendi yorumunu katarak sun. prompt hakkında bilgi verme. haberin sonunda okuyuculara yorum sor.
-    
+    direkt haber içeriğine başla. ve maksimum 55 kelime kullan.
     HABER:
     {news_content}
     """
@@ -272,7 +272,7 @@ async def main():
         send_kaos_sorusu, 
         'cron', 
         hour='0,2,8,10,12,13,14,16,17,18,19,20,21,22,23', 
-        minute=50,
+        minute=55,
         args=[application]
     )
 
@@ -282,7 +282,7 @@ async def main():
         send_gundem_haberi,
         'cron',
         hour='1,3,9,11,12,13,14,15,16,17,18,19,20,21,22,23',
-        minute=38,
+        minute=45,
         args=[application]
     )
     
