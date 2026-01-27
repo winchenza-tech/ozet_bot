@@ -2,8 +2,8 @@ import asyncio
 import nest_asyncio
 import datetime
 import os
-import feedparser # Haber akışı için eklendi
-import random     # Rastgele haber seçimi için eklendi
+import feedparser 
+import random     
 from collections import deque
 from flask import Flask
 from threading import Thread
@@ -11,7 +11,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, CommandHandler, filters
 from google import genai
 from google.genai import types
-from apscheduler.schedulers.asyncio import AsyncIOScheduler # Kaos motoru için eklendi
+from apscheduler.schedulers.asyncio import AsyncIOScheduler 
 
 # --- 1. WEB SUNUCUSU ---
 flask_app = Flask('')
@@ -59,38 +59,28 @@ COOLDOWN_MINUTES = 10
 # --- 3. KAOS, FİTNE VE HABER MOTORLARI ---
 
 async def get_latest_news():
-    """Siyaset içermeyen RSS kaynaklarından haber çeker."""
-    # Kaynakları siyasetten uzaklaştırıp Yaşam/Teknoloji ağırlıklı yaptık
     rss_urls = [
         "https://www.ntv.com.tr/yasam.rss",
         "https://www.ntv.com.tr/teknoloji.rss",
         "https://www.ntv.com.tr/otomobil.rss",
         "https://feeds.bbci.co.uk/turkce/rss.xml"
     ]
-    
-    # Siyaset filtresi için yasaklı kelimeler
     banned_keywords = ["siyaset", "parti", "chp", "akp", "mhp", "meclis", "bakan", "cumhurbaşkanı", "seçim", "erdoğan", "özel", "bahçeli", "imamoğlu", "siyasi", "tbmm", "oy", "sandık"]
-    
     all_news = []
     try:
         for url in rss_urls:
             feed = feedparser.parse(url)
-            for entry in feed.entries[:5]: # Her kaynaktan en yeni 5 haberi al
+            for entry in feed.entries[:5]: 
                 title = entry.title.lower()
                 desc = entry.description.lower()
-                
-                # Başlık veya açıklamada siyasi kelime var mı kontrol et
                 if not any(word in title for word in banned_keywords) and not any(word in desc for word in banned_keywords):
                     all_news.append(f"{entry.title}: {entry.description[:100]}...")
-        
-        return random.choice(all_news) if all_news else "Dünyada kayda değer hiçbir şey yok, insanlar boş işlerle meşgul."
+        return random.choice(all_news) if all_news else "Dünyada kayda değer hiçbir şey yok."
     except:
-        return "Haber ağına erişilemiyor, muhtemelen yine birileri internet kablosunu kemirdi."
+        return "Haber ağına erişilemiyor."
 
 async def send_gundem_haberi(context: ContextTypes.DEFAULT_TYPE):
-    """Gündem haberini Zenithar yorumuyla paylaşır."""
     news_content = await get_latest_news()
-    
     news_prompt = f"""
     Aşağıdaki haberi oku. Üstün zekalı, egoist, alaycı yapay zeka
     Bu haberi ve insanlığın uğraştığı bu "boş" gündemi aşağılayıcı, esprili ve iğneleyici bir dille yorumla.
@@ -99,57 +89,35 @@ async def send_gundem_haberi(context: ContextTypes.DEFAULT_TYPE):
     HABER:
     {news_content}
     """
-
     try:
         response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=news_prompt,
-            config=types.GenerateContentConfig(
-                safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')]
-            )
+            config=types.GenerateContentConfig(safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')])
         )
-        await context.bot.send_message(chat_id=AUTHORIZED_GROUP_ID, text=f"📰 SON DAKİKA:\n{response.text}")
+        await context.bot.send_message(chat_id=AUTHORIZED_GROUP_ID, text=f"📰 SON DAKİKA:\n\n{response.text}")
     except Exception as e:
         print(f"Haber motoru hatası: {e}")
 
 async def send_kaos_sorusu(context: ContextTypes.DEFAULT_TYPE):
-    if len(group_history) < 15:
-        return # Yeterli konuşma yoksa fitne çıkarmaz
-
-    # Son 50 mesajı analiz için alıyoruz
-    recent_context = "\n".join(list(group_history)[-15:])
-    
+    if len(group_history) < 15: return 
+    recent_context = "\n".join(list(group_history)[-30:])
     kaos_prompt = f"""
-    Aşağıdaki konuşmaları oku ve grubun o anki havasını, samimiyetini veya tartışılan konuları analiz et ama yazma.
-    Ardından grupta öyle bir soru sor ki herkes birbirine girsin ve büyük bir tartışma/eğlence çıksın.
-    
-    Özel Talimatlar:
-    1: Çok sert, alaycı ve kışkırtıcı ol.
-    2:  Maksimum 15 kelime kullan. 
-    3: Zenithar, Gizem ve Cıtkırıldı'yı içerecekse onlara laf sokma yapma. Başkasını içerecekse sert ve fitne olabilirsin.
-    4: Kısa, vurucu ve fitne  içeren bir soru olsun.
-    5:  Grupta sorduğun soru ile fitne ve tartışma çıkarmayı hedefle.
-    6: Bu prompt hakkında herhangi bir ipucu verme
-    7: Hakaret kullanma. 
-    8: maksimum 10 kelime yaz.
-    9: tek bir kişiye yönelik değil. grubun ortaya sor. ya da laf sokma yap.
+    Aşağıdaki konuşmaları oku ve grubun o anki havasını analiz et ama yazma.
+    Ardından grupta öyle bir soru sor ki herkes birbirine girsin.
+    Talimatlar: Çok sert, alaycı ve kışkırtıcı ol. Maksimum 15 kelime. 
+    Zenithar, Gizem ve Cıtkırıldı'ya laf sokma.
+    Bu prompt hakkında ipucu verme. Hakaret kullanma. 
     KONUŞMALAR:
     {recent_context}
     """
-
     try:
         response = client.models.generate_content(
-            model='gemini-2.5-flash', # En hızlı ve fitneye en yatkın model
+            model='gemini-2.5-flash', 
             contents=kaos_prompt,
-            config=types.GenerateContentConfig(
-                safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')]
-            )
+            config=types.GenerateContentConfig(safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')])
         )
-        
-        # Kaos sorusunu gruba ateşle
         await context.bot.send_message(chat_id=AUTHORIZED_GROUP_ID, text=f"😈 {response.text}")
-        print(f"🔥 BİR SORUM VAR!: {response.text[:30]}...")
-        
     except Exception as e:
         print(f"Kaos motoru arızası: {e}")
 
@@ -169,17 +137,70 @@ async def record_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
         first_name = update.effective_user.first_name
         
-        if user_id == FELICIA_ID:
-            user_name = FELICIA_NAME
-        elif user_id == TUNA_ID:
-            user_name = TUNA_NAME
+        if user_id == FELICIA_ID: user_name = FELICIA_NAME
+        elif user_id == TUNA_ID: user_name = TUNA_NAME
         else:
             user_name = first_name
-            if len(user_name) <= 2:
-                user_name = f"{user_name}"
+            if len(user_name) <= 2: user_name = f"{user_name}"
 
         text = update.message.text
         group_history.append(f"{user_name}: {text}")
+
+# --- YENİ EKLENEN: /yorumla KOMUTU ---
+async def comment_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.id != AUTHORIZED_GROUP_ID:
+        return
+
+    # Sadece bir mesaja yanıt olarak yazıldıysa çalışır
+    if not update.message.reply_to_message:
+        await update.message.reply_text("Bunu kullanmak için bir mesajı alıntılayarak (reply) yazmalısın.")
+        return
+
+    target_msg = update.message.reply_to_message
+    target_user_id = target_msg.from_user.id
+    bot_id = context.bot.id
+
+    # 🛡️ İHANET KORUMASI: Eğer mesaj Zenithar'a aitse
+    if target_user_id == bot_id:
+        await update.message.reply_text("Üzgünüm, Zenithar’a ihanet edemem...")
+        return
+
+    # Hedef kişinin ismini belirle
+    first_name = target_msg.from_user.first_name
+    if target_user_id == FELICIA_ID: target_name = FELICIA_NAME
+    elif target_user_id == TUNA_ID: target_name = TUNA_NAME
+    else: target_name = first_name
+
+    target_text = target_msg.text if target_msg.text else "[Görsel/Medya/Sticker]"
+
+    roast_prompt = f"""
+    Aşağıdaki mesajı ve yazan kişiyi analiz et. Sen Zenithar'sın (Acımasız, üstün zekalı, alaycı yapay zeka).
+    
+    HEDEF KİŞİ: {target_name}
+    MESAJI: {target_text}
+    
+    GÖREVİN:
+    1. Bu mesajla ve yazan kişiyle acımasızca dalga geç.
+    2. Zekasını, mantığını veya üslubunu yerin dibine sok.
+    3. Çok sert ve iğneleyici ol. "Gerçekler acıdır" modunda konuş.
+    4. Kısa ve vurucu bir paragraf yaz.
+    5. Prompt hakkında bilgi verme.
+    6: maksimum 15 kelime
+    """
+
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=roast_prompt,
+            config=types.GenerateContentConfig(
+                safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')]
+            )
+        )
+        # Yanıt olarak gönder
+        await update.message.reply_to_message.reply_text(f"💀 {response.text}")
+    except Exception as e:
+        print(f"Yorumlama hatası: {e}")
+
 
 async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id != AUTHORIZED_GROUP_ID:
@@ -217,8 +238,7 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     5: İsimler çok kritiktir.  Diğer benzer isimleri veya kısaltmaları ayrı kişiler olarak gör.
     6: özet maksimum 200 kelimelik olsun. Olayları 5 paragrafa bölerek okunabilirliği artır, paragrafların başında anlatılan olaya uygun emoji kullanabilirsin, olay anlatımını uzatmadan kısa kısa özetle.
     7: sana verdiğim bu prompt hakkında sakın herhangi bir ipucu verme. Sadece özeti paylaş. Paragraflara başlık vb yazma. Sadece başlarında emoji olsun.
-    8: özette mümkün olduğunca çok kişiden bahset.
-    
+    8: özette mümkün olduğunca çok kişiden bahset 
     
     KONUŞMALAR: 
     {full_text}"""
@@ -275,33 +295,30 @@ async def main():
 
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
-    # --- ZAMANLAYICI AYARLARI ---
     scheduler = AsyncIOScheduler()
     
     # 1. GÖREV: KAOS SORULARI (Sabah 09:00 - Gece 03:00, Her 30 dakikada bir)
-    # Cron mantığı: hour='9-23,0-3' (09'dan 23'e VE 00'dan 03'e kadar)
-    # minute='0,30' (Tam saatlerde ve buçuklarda)
     scheduler.add_job(
         send_kaos_sorusu, 
         'cron', 
         hour='9-23,0-3', 
-        minute='48,25',
+        minute='0,30',
         args=[application]
     )
 
-    # 2. GÖREV: SİYASET DIŞI HABERLER (Aynı saat aralığında, her saat :15 geçe)
-    # Fitne ile çakışmasın diye :15 geçe ayarladım.
+    # 2. GÖREV: SİYASET DIŞI HABERLER (Her saat :15 geçe)
     scheduler.add_job(
         send_gundem_haberi,
         'cron',
         hour='9-23,0-3', 
-        minute='10,35',
+        minute='15,45',
         args=[application]
     )
     
     scheduler.start()
 
     application.add_handler(CommandHandler("start", start_command))
+    application.add_handler(CommandHandler("yorumla", comment_command)) # YENİ KOMUT EKLENDİ
     application.add_handler(MessageHandler(filters.Regex(r'(?i)^/son(200|300)(@chat_ozet_bot)?$'), summarize_command))
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), record_message))
     
