@@ -225,7 +225,7 @@ async def main():
         send_kaos_sorusu, 
         'cron', 
         hour='0,2,8,10,12,13,14,16,18,20,22', 
-        minute=30,
+        minute=50,
         args=[application]
     )
     
@@ -235,7 +235,7 @@ async def main():
     application.add_handler(MessageHandler(filters.Regex(r'(?i)^/son(200|300)(@chat_ozet_bot)?$'), summarize_command))
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), record_message))
 
-    print(f"🚀 Zenithar v2.7 Aktif! Fitne saati 08:30'da başlıyor...")
+    
     
     await application.initialize()
     await application.start()
