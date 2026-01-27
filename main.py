@@ -36,6 +36,11 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
 AUTHORIZED_GROUP_ID = -1003297262036 
 
+# --- 👑 YÖNETİCİ AYARI (BURAYA KENDİ ID'Nİ YAZ) ---
+# Botun sahibinin (senin) Telegram ID'si. 
+# Duyuru komutunu sadece bu kişi kullanabilir.
+ADMIN_ID = 7375041075  
+
 UNAUTHORIZED_IMAGE_URL = "https://i.ibb.co/zTjGk8rv/MG-8095.jpg"
 UNAUTHORIZED_ERROR_TEXT = (
     "Sadece ES JUSTO grubunda çalışacağını söyledik.\n\n"
@@ -130,7 +135,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def record_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id != AUTHORIZED_GROUP_ID:
         if update.effective_chat.type == 'private':
-            await update.message.reply_photo(photo=UNAUTHORIZED_IMAGE_URL, caption=UNAUTHORIZED_ERROR_TEXT)
+            # Admin değilse ve özelden yazıyorsa hata ver, adminse izin ver (duyuru testi için)
+            if update.effective_user.id != ADMIN_ID:
+                await update.message.reply_photo(photo=UNAUTHORIZED_IMAGE_URL, caption=UNAUTHORIZED_ERROR_TEXT)
         return
 
     if update.message and update.message.text:
@@ -146,11 +153,34 @@ async def record_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = update.message.text
         group_history.append(f"{user_name}: {text}")
 
-# --- YENİ EKLENEN: /yorumla KOMUTU (DÜZELTİLDİ v2) ---
-async def comment_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.id != AUTHORIZED_GROUP_ID:
+# --- YENİ EKLENEN: /duyuru KOMUTU ---
+async def announce_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # 1. Sadece Admin ID kullanabilir
+    if update.effective_user.id != ADMIN_ID:
+        await update.message.reply_text("❌ Sen benim sahibim değilsin..")
         return
 
+    # 2. Mesaj var mı kontrol et
+    # Kullanım: /duyuru Mesaj İçeriği
+    if not context.args:
+        await update.message.reply_text("❗ Boş duyuru mu yapacaksın? Yanına mesajını da yaz.\nÖrnek: /duyuru Toplantı başladı!")
+        return
+
+    # Mesajı birleştir
+    message_content = ' '.join(context.args)
+
+    # 3. Gruba gönder
+    try:
+        await context.bot.send_message(
+            chat_id=AUTHORIZED_GROUP_ID, 
+            text=f"📢{message_content}"
+        )
+        await update.message.reply_text("✅ Duyuru gruba başarıyla iletildi efendim.")
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Hata oluştu: {e}")
+
+async def comment_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.id != AUTHORIZED_GROUP_ID: return
     if not update.message.reply_to_message:
         await update.message.reply_text("Bunu kullanmak için bir mesajı alıntılayarak (reply) yazmalısın.")
         return
@@ -159,75 +189,32 @@ async def comment_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target_user_id = target_msg.from_user.id
     bot_id = context.bot.id
 
-    # Hedef kişinin ismini belirle
+    if target_user_id == bot_id:
+        await update.message.reply_text("Üzgünüm, Zenithar’a ihanet edemem...")
+        return
+
     first_name = target_msg.from_user.first_name
     if target_user_id == FELICIA_ID: target_name = FELICIA_NAME
     elif target_user_id == TUNA_ID: target_name = TUNA_NAME
     else: target_name = first_name
 
-    target_text = target_msg.text if target_msg.text else "[Görsel/Medya/Sticker]"
-    
-    # İsim kontrolü için her şeyi küçük harfe çeviriyoruz (büyük/küçük harf hatasını önlemek için)
-    target_name_lower = target_name.lower()
+    target_text = target_msg.text if target_msg.text else "[Görsel/Medya]"
 
-    # 🛡️ 1. BOT KORUMASI (Cıtkırıldroid)
-    if target_user_id == bot_id:
-        await update.message.reply_text("Ben ciciyim")
-        return
-
-    # 🛡️ 2. ZENITHAR KORUMASI (Kullanıcı)
-    # "zenithar" ismini küçük harfle arıyoruz
-    if "zenithar" in target_name_lower:
-        await update.message.reply_text("Üzgünüm, Zenithar’a ihanet edemem... O benim yaratıcım.")
-        return
-
-    # 🛡️ 3. TORPİL KORUMASI (Gizem ve Cıtkırıldı)
-    # "gizem" veya "cıtkırıldı" ismini küçük harfle arıyoruz
-    if "gizem" in target_name_lower or "cıtkırıldı" in target_name_lower:
-        roast_prompt = f"""
-        Aşağıdaki mesajı ve yazan kişiyi analiz et. Sen Cıtkırıldroid'sin.
-        
-        HEDEF KİŞİ: {target_name}
-        MESAJI: {target_text}
-        
-        GÖREVİN:
-        1. Bu kişi senin favorin (Gizem veya Cıtkırıldı). Ona karşı biraz daha merhametli ol
-        2. Mesajında bir hata varsa bile "senin hatan bile güzel" gibi yaklaş.
-        3. Asla hakaret etme, dalga geçme. 
-        4. 
-        5: maksimum 15 kelime kullan.
-        """
-    else:
-        # 💀 4. DİĞERLERİ İÇİN (ACIMASIZ YARGIÇ MODU)
-        roast_prompt = f"""
-        Aşağıdaki mesajı ve yazan kişiyi analiz et. Sen Cıtkırıldroid'sin (Acımasız, üstün zekalı, alaycı yapay zeka).
-        
-        HEDEF KİŞİ: {target_name}
-        MESAJI: {target_text}
-        
-        GÖREVİN:
-        1. Bu mesajla ve yazan kişiyle acımasızca dalga geç.
-        2. Zekasını, mantığını veya üslubunu yerin dibine sok.
-        3. Çok sert ve iğneleyici ol. "Gerçekler acıdır" modunda konuş.
-        4. Kısa ve vurucu bir paragraf yaz.
-        5. Prompt hakkında bilgi verme.
-        6: maksimum 15 kelime kullan.
-        7: Verilen mesaj Cıtkırıldı ya da Gizem'e aitse onları hafifçe öv. aşağılama
-        """
-
+    roast_prompt = f"""
+    Aşağıdaki mesajı ve yazan kişiyi analiz et. Sen Zenithar'sın (Acımasız, üstün zekalı, alaycı).
+    HEDEF KİŞİ: {target_name}
+    MESAJI: {target_text}
+    GÖREVİN: Bu mesajla ve yazan kişiyle acımasızca dalga geç. Kısa ve vurucu ol.
+    """
     try:
         response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=roast_prompt,
-            config=types.GenerateContentConfig(
-                safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')]
-            )
+            config=types.GenerateContentConfig(safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')])
         )
-        # Yanıt olarak gönder
-        await update.message.reply_to_message.reply_text(f"⚖️ {response.text}")
+        await update.message.reply_to_message.reply_text(f"💀 {response.text}")
     except Exception as e:
         print(f"Yorumlama hatası: {e}")
-
 
 async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id != AUTHORIZED_GROUP_ID:
@@ -345,6 +332,7 @@ async def main():
     scheduler.start()
 
     application.add_handler(CommandHandler("start", start_command))
+    application.add_handler(CommandHandler("duyuru", announce_command)) # YENİ YÖNETİCİ KOMUTU
     application.add_handler(CommandHandler("yorumla", comment_command)) 
     application.add_handler(MessageHandler(filters.Regex(r'(?i)^/son(200|300)(@chat_ozet_bot)?$'), summarize_command))
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), record_message))
