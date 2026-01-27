@@ -117,7 +117,7 @@ async def send_kaos_sorusu(context: ContextTypes.DEFAULT_TYPE):
         return # Yeterli konuşma yoksa fitne çıkarmaz
 
     # Son 50 mesajı analiz için alıyoruz
-    recent_context = "\n".join(list(group_history)[-30:])
+    recent_context = "\n".join(list(group_history)[-15:])
     
     kaos_prompt = f"""
     Aşağıdaki konuşmaları oku ve grubun o anki havasını, samimiyetini veya tartışılan konuları analiz et ama yazma.
