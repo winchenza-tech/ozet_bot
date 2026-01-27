@@ -61,8 +61,7 @@ COOLDOWN_MINUTES = 10
 async def get_latest_news():
     """RSS kaynaklarından güncel haber başlıklarını çeker."""
     rss_urls = [
-        "https://www.ntv.com.tr/gundem.rss",
-        "https://www.ntv.com.tr/dunya.rss",
+       
         "https://feeds.bbci.co.uk/turkce/rss.xml"
     ]
     all_news = []
@@ -272,7 +271,7 @@ async def main():
         send_kaos_sorusu, 
         'cron', 
         hour='0,2,8,10,12,13,14,16,17,18,19,20,21,22,23', 
-        minute=55,
+        minute=35,
         args=[application]
     )
 
@@ -282,7 +281,7 @@ async def main():
         send_gundem_haberi,
         'cron',
         hour='1,3,9,11,12,13,14,15,16,17,18,19,20,21,22,23',
-        minute=10,
+        minute=15,
         args=[application]
     )
     
