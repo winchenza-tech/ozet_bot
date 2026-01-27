@@ -83,7 +83,7 @@ async def send_gundem_haberi(context: ContextTypes.DEFAULT_TYPE):
     Aşağıdaki haberi oku. Üstün zekalı, egoist, alaycı yapay zeka
     Bu haberi ve insanlığın uğraştığı bu "boş" gündemi aşağılayıcı, esprili ve iğneleyici bir dille yorumla.
     Haberi olduğu gibi verme, kendi yorumunu katarak sun. prompt hakkında bilgi verme.
-    direkt haber içeriğine başla. ve maksimum 30 kelime kullan.
+    direkt haber içeriğine başla. ve maksimum 25 kelime kullan.
     HABER:
     {news_content}
     """
