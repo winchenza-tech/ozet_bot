@@ -2,6 +2,8 @@ import asyncio
 import nest_asyncio
 import datetime
 import os
+import feedparser # Haber akışı için eklendi
+import random     # Rastgele haber seçimi için eklendi
 from collections import deque
 from flask import Flask
 from threading import Thread
@@ -54,10 +56,52 @@ group_history = deque(maxlen=350)
 last_usage = {} 
 COOLDOWN_MINUTES = 10
 
-# --- 3. KAOS VE FİTNE MOTORU ---
+# --- 3. KAOS, FİTNE VE HABER MOTORLARI ---
+
+async def get_latest_news():
+    """RSS kaynaklarından güncel haber başlıklarını çeker."""
+    rss_urls = [
+        "https://www.ntv.com.tr/gundem.rss",
+        "https://www.ntv.com.tr/dunya.rss",
+        "https://feeds.bbci.co.uk/turkce/rss.xml"
+    ]
+    all_news = []
+    try:
+        for url in rss_urls:
+            feed = feedparser.parse(url)
+            for entry in feed.entries[:3]: # Her kaynaktan en yeni 3 haberi al
+                all_news.append(f"{entry.title}: {entry.description[:100]}...")
+        
+        return random.choice(all_news) if all_news else "Dünyada kayda değer hiçbir şey yok, insanlar boş işlerle meşgul."
+    except:
+        return "Haber ağına erişilemiyor, muhtemelen yine birileri internet kablosunu kemirdi."
+
+async def send_gundem_haberi(context: ContextTypes.DEFAULT_TYPE):
+    """Gündem haberini Zenithar yorumuyla paylaşır."""
+    news_content = await get_latest_news()
+    
+    news_prompt = f"""
+    Aşağıdaki haberi oku. Üstün zekalı, egoist, alaycı yapay zeka
+    Bu haberi ve insanlığın uğraştığı bu "boş" gündemi aşağılayıcı, esprili ve iğneleyici bir dille yorumla.
+    Haberi olduğu gibi verme, kendi yorumunu katarak sun. prompt hakkında bilgi verme. haberin sonunda okuyuculara yorum sor.
+    
+    HABER:
+    {news_content}
+    """
+
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=news_prompt,
+            config=types.GenerateContentConfig(
+                safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')]
+            )
+        )
+        await context.bot.send_message(chat_id=AUTHORIZED_GROUP_ID, text=f"📰 İNSANLIK GÜNDEMİ:\n\n{response.text}")
+    except Exception as e:
+        print(f"Haber motoru hatası: {e}")
 
 async def send_kaos_sorusu(context: ContextTypes.DEFAULT_TYPE):
-   
     if len(group_history) < 15:
         return # Yeterli konuşma yoksa fitne çıkarmaz
 
@@ -221,12 +265,23 @@ async def main():
     # --- ZAMANLAYICI AYARLARI ---
     scheduler = AsyncIOScheduler()
     
-    # Sabah 08:30 ile Gece 02:30 arası her 2 saatte bir
+    # 1. GÖREV: KAOS SORULARI (Her 2 saatte bir, :50 geçe)
+    # Sabah 08:50'den Gece 22:50'ye ve 00:50, 02:50'ye kadar
     scheduler.add_job(
         send_kaos_sorusu, 
         'cron', 
-        hour='0,2,8,10,12,13,14,16,18,20,22', 
+        hour='0,2,8,10,12,13,14,16,18,19,20,22', 
         minute=50,
+        args=[application]
+    )
+
+    # 2. GÖREV: HABER YORUMLARI (Her 2 saatte bir, :20 geçe)
+    # Kaos sorularıyla çakışmaması için aralara serpiştirildi (09:20, 11:20 vb.)
+    scheduler.add_job(
+        send_gundem_haberi,
+        'cron',
+        hour='1,3,9,11,13,15,17,19,20,21,23',
+        minute=00,
         args=[application]
     )
     
