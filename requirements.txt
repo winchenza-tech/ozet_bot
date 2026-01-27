@@ -3,3 +3,4 @@ python-telegram-bot
 Flask
 nest_asyncio
 apscheduler
+feedparser
