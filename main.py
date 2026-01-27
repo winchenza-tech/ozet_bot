@@ -66,8 +66,8 @@ COOLDOWN_MINUTES = 10
 async def get_latest_news():
     rss_urls = [
         "https://www.ntv.com.tr/yasam.rss",
-        "https://www.ntv.com.tr/teknoloji.rss",
-        "https://www.ntv.com.tr/otomobil.rss",
+       
+        
         "https://feeds.bbci.co.uk/turkce/rss.xml"
     ]
     banned_keywords = ["siyaset", "parti", "chp", "akp", "mhp", "meclis", "bakan", "cumhurbaşkanı", "seçim", "erdoğan", "özel", "bahçeli", "imamoğlu", "siyasi", "tbmm", "oy", "sandık"]
@@ -204,7 +204,7 @@ async def comment_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     Aşağıdaki mesajı ve yazan kişiyi analiz et. Sen Zenithar'sın (Acımasız, üstün zekalı, alaycı).
     HEDEF KİŞİ: {target_name}
     MESAJI: {target_text}
-    GÖREVİN: Bu mesajla ve yazan kişiyle acımasızca dalga geç. Kısa ve vurucu ol.
+    GÖREVİN: Bu mesajla ve yazan kişiyle acımasızca dalga geç. Kısa ve vurucu ol. maksimum 15 kelime kullan. 
     """
     try:
         response = client.models.generate_content(
