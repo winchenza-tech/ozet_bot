@@ -150,7 +150,7 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     full_text = "\n".join(list(group_history)[-count:])
     
-   prompt = f"""
+    prompt = f"""
     Aşağıdaki konuşmaları esprili, muzip, zekice laf sokmalı ve alaycı, iğneleyici bir dil ile özetle . Özel kurallar:
     1: Mesajlar arasında Zenithar, Gizem veya Cıtkırıldı varsa bunları özete mutlaka dahil et ama hep de onlardan bahsetme diğerleriyle eşit derecede olsun. Gizem, Cıtkırıldı ve Zenithar'a laf sokma. Bu özeti bana verdiğin saat tek sayı ise ve özette Gizem varsa ondan Kralicemiz Gizem diyerek bahset, Çift sayı ise sadece Gizem diyebilirsin.
     2: Özette {FELICIA_NAME} ya da {TUNA_NAME} ve Xenn varsa onlarla aşağılayıcı şekilde dalga geç ve aşağıla ve eleştiride acımasız ol. bunun yanında onlara hafifçe hakaret edebilirsin . Eğer yoklarsa isimlerini anma. Ama hep de onlardan bahsetme. Maksimum 2-3 kez isimleri geçsin
@@ -162,7 +162,7 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     8: özette mümkün olduğunca çok kişiden bahset 
     
     KONUŞMALAR: 
-    {full_text}  """
+    {full_text}"""
   
 
     def call_gemini():
@@ -177,16 +177,19 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         gemini_coro = asyncio.to_thread(call_gemini)
         gemini_task = asyncio.create_task(gemini_coro)
+        
         await asyncio.sleep(3)
         if not gemini_task.done():
             try: await status_msg.edit_text("🤖 Cıtkırıldroid Bot yapay zeka entegrasyonunu aktif hale getiriyor...")
             except: pass
+            
         if not gemini_task.done():
             await asyncio.sleep(3)
             if not gemini_task.done():
                 try: await status_msg.edit_text("⚡ Nöral ağlar verileri işliyor...")
                 except: pass
-if not gemini_task.done():
+                
+        if not gemini_task.done():
             await asyncio.sleep(3)
             if not gemini_task.done():
                 try: await status_msg.edit_text("🔮 İnsan zekasının yetersiz kaldığı boşluklar Zenithar mantığıyla dolduruluyor...")
@@ -196,6 +199,7 @@ if not gemini_task.done():
         await status_msg.delete()
         await update.message.reply_text(f"📝 CHAT ÖZETİ:\n{response.text}")
         last_usage[chat_id] = now
+        
     except Exception as e:
         print(f"Hata: {e}")
         try: await status_msg.delete()
@@ -216,7 +220,6 @@ async def main():
     scheduler = AsyncIOScheduler()
     
     # Sabah 08:30 ile Gece 02:30 arası her 2 saatte bir
-    # Saatler: 8:30, 10:30, 12:30, 14:30, 16:30, 18:30, 20:30, 22:30, 00:30, 02:30
     scheduler.add_job(
         send_kaos_sorusu, 
         'cron', 
