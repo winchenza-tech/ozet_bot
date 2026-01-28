@@ -12,8 +12,7 @@ from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, Comma
 from google import genai
 from google.genai import types
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from gtts import gTTS  # SES SENTEZLEME
-
+from gtts import gTTS
 # --- 1. WEB SUNUCUSU ---
 flask_app = Flask('')
 
