@@ -208,7 +208,7 @@ async def record_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "text": text
         }
         # Cache şişmesin diye temizlik (son 500 mesaj)
-        if len(message_id_cache) > 500:
+        if len(message_id_cache) > 15:
             first_key = next(iter(message_id_cache))
             del message_id_cache[first_key]
 
