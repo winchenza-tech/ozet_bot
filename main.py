@@ -256,7 +256,7 @@ async def comment_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target_text = target_msg.text if target_msg.text else "[Görsel/Medya]"
 
     roast_prompt = f"""
-    Aşağıdaki mesajı ve yazan kişiyi analiz et. Sen Zenithar'sın (Acımasız, üstün zekalı, alaycı).
+    Aşağıdaki mesajı ve yazan kişiyi analiz et. (Acımasız, üstün zekalı, alaycı).
     HEDEF KİŞİ: {target_name}
     MESAJI: {target_text}
     GÖREVİN: Bu mesajla ve yazan kişiyle acımasızca dalga geç, aşağıla. Kısa ve vurucu ol. Maksimum 20 kelime kullan.
@@ -333,11 +333,12 @@ async def admin_voice_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Senin belirlediğin roast prompt mantığına uygun analiz
         prompt = f"""
-        bu kişiye saldır
+       mesajın içer
+    iğini ve yazan kişiyi aşağıla.
         HEDEF: {target_name}
         MESAJI: "{target_text}"
-        GÖREV: Bu kişiyi sesli okunacak şekilde yerin dibine sok. Çok ağır konuş.
-        
+        GÖREV: Bu kişiyiyerin dibine sok. Çok ağır konuş.
+       
         """
         
         res = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
@@ -357,7 +358,7 @@ async def admin_voice_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 chat_id=AUTHORIZED_GROUP_ID,
                 voice=audio_file,
                 reply_to_message_id=msg_id,
-                caption="💀 "
+                caption="💀"
             )
         
         await status_msg.edit_text("✅ İnfaz gruba iletildi.")
@@ -398,7 +399,7 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     prompt = f"""
     Aşağıdaki konuşmaları esprili, muzip, zekice laf sokmalı ve alaycı bir dil ile özetle . Özel kurallar:
     1: Mesajlar arasında Zenithar, Gizem veya Cıtkırıldı varsa bunları özete mutlaka dahil et ama hep de onlardan bahsetme diğerleriyle eşit derecede olsun. Gizem, Cıtkırıldı ve Zenithar'a laf sokma. Bu özeti bana verdiğin saat tek sayı ise ve özette Gizem varsa ondan Kralicemiz Gizem diyerek bahset, Çift sayı ise sadece Gizem diyebilirsin.
-    2: Özette {FELICIA_NAME} ya da {TUNA_NAME}  varsa onlarla aşağılayıcı şekilde dalga geç ve aşağıla ve eleştiride acımasız ol. bunun yanında onlara hafifçe hakaret edebilirsin . Eğer yoklarsa isimlerini anma. Ama hep de onlardan bahsetme. Maksimum 2-3 kez isimleri geçsin
+    2: Özette {FELICIA_NAME} ya da {TUNA_NAME} ve Xenn varsa onlarla aşağılayıcı şekilde dalga geç ve aşağıla ve eleştiride acımasız ol. bunun yanında onlara hafifçe hakaret edebilirsin . Eğer yoklarsa isimlerini anma. Ama hep de onlardan bahsetme. Maksimum 2-3 kez isimleri geçsin
     3: Özet içerisinde asla * (yıldız) işareti kullanma.
     4: Yazılanların hepsini 'o şunu dedi bu bunu dedi' gibi aynen yazmak yerine daha çok olay olarak özetle. Daha çok ince espri kat.
     5: İsimler çok kritiktir. Konuşma dökümünde '{FELICIA_NAME}' ve '{TUNA_NAME}' olarak geçen kişiler bellidir. Diğer benzer isimleri veya kısaltmaları (Örn: F) sakın onlarla karıştırma, ayrı kişiler olarak gör.
