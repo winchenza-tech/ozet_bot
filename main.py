@@ -381,20 +381,19 @@ async def main():
 
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
-    scheduler = AsyncIOScheduler()
+   scheduler = AsyncIOScheduler(timezone="Europe/Istanbul")
     
-    # 1. KAOS SORULARI (09:00 - 03:00, Her 2 saatte bir, :30 geçe)
-    # Cron: 09:30, 11:30...
-    scheduler.add_job(send_kaos_sorusu, 'cron', hour='9,11,13,15,17,18,19,20,21,22,23,1,3', minute=30, args=[application])
+    # Hedef Saatler (TRT): 09, 11, 13, 15, 17, 19, 21, 23, 01
+    target_hours = '1,2,3,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,0'
 
-    # 2. HABERLER (09:00 - 03:00, Her 2 saatte bir, :15 geçe)
-    # Cron: 09:15, 11:15...
-    scheduler.add_job(send_gundem_haberi, 'cron', hour='9,11,13,15,17,19,21,23,1,3', minute=15, args=[application])
+    # 😈 Kaos Soruları (:30 geçe)
+    scheduler.add_job(send_kaos_sorusu, 'cron', hour=target_hours, minute=40, args=[application])
 
-    # 3. OTOMATİK SESLİ YARGIÇ (09:00 - 03:00, Her 2 saatte bir, :45 geçe)
-    # Cron: 09:45, 11:45...
-    # Diğerleriyle çakışmasın diye :45'e koyduk.
-    scheduler.add_job(send_auto_roast, 'cron', hour='9,11,13,14,15,16,17,18,19,20,21,22,23,', minute=45, args=[application])
+    # 📰 Haberler (:15 geçe)
+    scheduler.add_job(send_gundem_haberi, 'cron', hour=target_hours, minute=05, args=[application])
+
+    # 🎙️ Otomatik Sesli İnfaz (:45 geçe)
+    scheduler.add_job(send_auto_roast, 'cron', hour=target_hours, minute=20, args=[application])
     
     scheduler.start()
 
