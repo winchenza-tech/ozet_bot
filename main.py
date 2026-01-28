@@ -246,7 +246,7 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     prompt = f"""
     Aşağıdaki konuşmaları esprili, muzip, zekice laf sokmalı ve alaycı, bol ve sert iğneleyici bir dil ile özetle . Özel kurallar:
     1: Mesajlar arasında Zenithar, Gizem veya Cıtkırıldı varsa bunları özete mutlaka dahil et ama hep de onlardan bahsetme diğerleriyle eşit derecede olsun. Gizem, Cıtkırıldı ve Zenithar'a laf sokma. Bu özeti bana verdiğin saat tek sayı ise ve özette Gizem varsa ondan Kralicemiz Gizem diyerek bahset, Çift sayı ise sadece Gizem diyebilirsin.
-    2: Özette {FELICIA_NAME} ya da {TUNA_NAME} , Tolga ve Xenn varsa onlarla aşağılayıcı şekilde dalga geç ve aşağıla ve eleştiride acımasız ol. bunun yanında onlara hafifçe hakaret edebilirsin . Eğer yoklarsa isimlerini anma. Ama hep de onlardan bahsetme. Maksimum 2-3 kez isimleri geçsin. Eğer konuşmalarda yoklarsa isimlerini anma.
+    2: Özette {FELICIA_NAME} ya da {TUNA_NAME} , Tolga ve Aleyna varsa onlarla aşağılayıcı şekilde dalga geç ve aşağıla ve eleştiride acımasız ol. bunun yanında onlara hafifçe hakaret edebilirsin . Eğer yoklarsa isimlerini anma. Ama hep de onlardan bahsetme. Maksimum 2-3 kez isimleri geçsin. Eğer konuşmalarda yoklarsa isimlerini anma.
     3: Özet içerisinde asla * (yıldız) işareti kullanma.
     4: Yazılanların hepsini 'o şunu dedi bu bunu dedi' gibi aynen yazmak yerine daha çok olay olarak özetle. Daha çok ince espri kat. 
     5: İsimler çok kritiktir.  Diğer benzer isimleri veya kısaltmaları ayrı kişiler olarak gör.
