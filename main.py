@@ -181,13 +181,13 @@ async def dream_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     dream_text = ' '.join(context.args)
 
     dream_prompt = f"""
-    Sen Cıtkırıldroid'sin. Aşağıdaki rüyayı 'rüya tabirleri' formatında ama çok muzip, esprili ve dalga geçer gibi yorumla.
-    Kullanıcıya takıl, başına geleceklerle ilgili komik kehanetlerde bulun.
+    Sen Cıtkırıldroid'sin. Aşağıdaki rüyayı 'rüya tabirleri' formatında ama muzip şekilde rüya tabirini ver.
+    
     
     RÜYA: {dream_text}
     
     KURALLAR:
-    1. Maksimum 40 kelime kullan.
+    1. Maksimum 55 kelime kullan.
     2. Muzip ve eğlenceli ol.
     """
 
@@ -197,7 +197,7 @@ async def dream_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             contents=dream_prompt,
             config=types.GenerateContentConfig(safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')])
         )
-        await update.message.reply_text(f"🔮 **RÜYA TABİRİ:**\n{response.text}")
+        await update.message.reply_text(f"🔮 RÜYA TABİRİ:\n{response.text}")
     except Exception as e:
         print(f"Rüya hatası: {e}")
 
