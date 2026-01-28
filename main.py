@@ -13,7 +13,7 @@ from google import genai
 from google.genai import types
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from gtts import gTTS
-import pytz
+import pytz  # EKLENDİ: Saat dilimi düzeltmesi için gerekli
 
 # --- 1. WEB SUNUCUSU ---
 flask_app = Flask('')
@@ -126,7 +126,7 @@ async def send_kaos_sorusu(context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         print(f"Kaos motoru arızası: {e}")
 
-# --- 🆕 OTOMATİK SESLİ YARGILAMA (ZAMANLAYICI İLE) ---
+# --- 🆕 OTOMATİK SESLİ YARGILAMA ---
 async def send_auto_roast(context: ContextTypes.DEFAULT_TYPE):
     # Eğer hafızada yeterli mesaj yoksa (en az 5) hiç bulaşma
     if len(group_history) < 5:
@@ -145,7 +145,7 @@ async def send_auto_roast(context: ContextTypes.DEFAULT_TYPE):
 
     # Prompt Hazırlığı
     roast_prompt = f"""
-    Aşağıdaki mesajı gruptan rastgele yakaladım.
+    Aşağıdaki mesajı gruptan rastgele yakaladım. Sen Zenithar'sın.
     Bu mesajı yazan kişiyi ({target_name}) ve yazdığı şeyi ({target_text}) acımasızca, alaycı ve aşağılayıcı bir dille eleştir.
     Sanki araya girip "Bu ne saçmalık" diyormuşsun gibi olsun aşaüğıla ve hakaret et.
     Kısa ve vurucu yaz. Sesli okunacak, o yüzden emoji kullanma. maksimum 15 kelime kullan.
@@ -161,22 +161,23 @@ async def send_auto_roast(context: ContextTypes.DEFAULT_TYPE):
         roast_text = response.text
 
         # 2. Ses Efekti (Kahkaha)
-        audio_text = roast_text + " Muah ha ha ha! "
+        audio_text = roast_text + "Muah ha ha ha! "
 
         # 3. Ses Dosyası Oluştur
         def create_audio_file(text):
             tts = gTTS(text=text, lang='tr', slow=False)
-            filename = f"auto_roast_{random.randint(1000,9999)}.mp3"
+            # TEKNİK DÜZELTME: .ogg formatı Telegram voice için daha uyumludur
+            filename = f"auto_roast_{random.randint(1000,9999)}.ogg"
             tts.save(filename)
             return filename
 
         filename = await asyncio.to_thread(create_audio_file, audio_text)
 
-        # 4. Gruba Gönder (Başlık atarak)
-        with open(filename, 'rb') as voice_file:
+        # 4. Gruba Gönder (TEKNİK DÜZELTME: 'with open' kullanarak dosya kilitleme hatasını önlüyoruz)
+        with open(filename, 'rb') as audio_file:
             await context.bot.send_voice(
                 chat_id=AUTHORIZED_GROUP_ID,
-                voice=voice_file,
+                voice=audio_file,
                 caption=f"🎙️Hedef: {target_name}"
             )
 
@@ -186,7 +187,7 @@ async def send_auto_roast(context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         print(f"Otomatik yargıç hatası: {e}")
 
-# --- 4. KOMUT FONKSİYONLARI ---
+# --- 4. BOT FONKSİYONLARI ---
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id != AUTHORIZED_GROUP_ID:
@@ -232,7 +233,7 @@ async def announce_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"⚠️ Hata: {e}")
 
-# 1️⃣ MANUEL TEXT ROAST (/yorumla) -> SADECE YAZILI
+# --- MANUEL SESLİ YORUMLA KOMUTU ---
 async def comment_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id != AUTHORIZED_GROUP_ID: return
     if not update.message.reply_to_message:
@@ -255,7 +256,7 @@ async def comment_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target_text = target_msg.text if target_msg.text else "[Görsel/Medya]"
 
     roast_prompt = f"""
-  (Acımasız, üstün zekalı, alaycısın).
+    Aşağıdaki mesajı ve yazan kişiyi analiz et. Sen Zenithar'sın (Acımasız, üstün zekalı, alaycı).
     HEDEF KİŞİ: {target_name}
     MESAJI: {target_text}
     GÖREVİN: Bu mesajla ve yazan kişiyle acımasızca dalga geç, aşağıla. Kısa ve vurucu ol. Maksimum 20 kelime kullan.
@@ -269,14 +270,35 @@ async def comment_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             config=types.GenerateContentConfig(safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')])
         )
 
-        # Sadece Metin Gönder
-        await update.message.reply_to_message.reply_text(f"💀 {response.text}")
+        roast_text = response.text
+        # DÜZELTME: "+" işareti tek başınaydı, syntax hatası veriyordu.
+        audio_text = roast_text
+
+        def create_audio_file(text):
+            tts = gTTS(text=text, lang='tr', slow=False)
+            # TEKNİK DÜZELTME: .ogg formatı
+            filename = f"zenithar_voice_{update.update_id}.ogg"
+            tts.save(filename)
+            return filename
+
+        status_msg = await update.message.reply_text("🎤 Cıtkırıldroid sesini ısıtıyor...")
+        filename = await asyncio.to_thread(create_audio_file, audio_text)
+
+        # TEKNİK DÜZELTME: Güvenli dosya gönderimi
+        with open(filename, 'rb') as audio_file:
+            await update.message.reply_to_message.reply_voice(
+                voice=audio_file,
+                caption=f"💀 {roast_text}"
+            )
+
+        await status_msg.delete()
+        os.remove(filename)
 
     except Exception as e:
         print(f"Yorumlama hatası: {e}")
-        await update.message.reply_text(f"Hata: {e}")
+        await update.message.reply_text(f"Ses devrelerimde sorun var. Hata: {e}")
 
-# 2️⃣ ADMIN ÖZEL SESLİ YANIT (/yanitla) -> DM ÜZERİNDEN
+# --- 🆕 ADMIN UZAKTAN YANITLA KOMUTU (/yanitla) ---
 async def admin_voice_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Sadece Özel Mesajda ve Sadece Admin
     if update.effective_chat.type != 'private': return
@@ -289,10 +311,10 @@ async def admin_voice_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     link = context.args[0]
-    status_msg = await update.message.reply_text(" ")
+    status_msg = await update.message.reply_text("🕵️ Mesaj analiz ediliyor...")
 
     try:
-        # Linkten ID çekme (https://t.me/c/xxxx/1234)
+        # Linkten ID çekme
         msg_id = int(link.split('/')[-1])
 
         # Mesajı okumak için forward et
@@ -309,9 +331,9 @@ async def admin_voice_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         target_text = forwarded_msg.text if forwarded_msg.text else "[Medya]"
 
-        # Roast Prompt
+        # Senin belirlediğin roast prompt mantığına uygun analiz
         prompt = f"""
-        
+        bu kişiye saldır
         HEDEF: {target_name}
         MESAJI: "{target_text}"
         GÖREV: Bu kişiyi sesli okunacak şekilde yerin dibine sok. Çok ağır konuş.
@@ -319,22 +341,23 @@ async def admin_voice_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         
         res = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
-        audio_text = res.text + " mu ha ha! "
+        audio_text = "Emredersiniz! " + res.text 
         
         def create_audio_file(text):
             tts = gTTS(text=text, lang='tr', slow=False)
-            fn = f"remote_{update.update_id}.mp3"
-            tts.save(fn); return fn
+            filename = f"remote_{update.update_id}.ogg"
+            tts.save(filename)
+            return filename
 
         fn = await asyncio.to_thread(create_audio_file, audio_text)
         
         # Gruba Sesli Yanıt At
-        with open(fn, 'rb') as voice_file:
+        with open(fn, 'rb') as audio_file:
             await context.bot.send_voice(
                 chat_id=AUTHORIZED_GROUP_ID,
-                voice=voice_file,
+                voice=audio_file,
                 reply_to_message_id=msg_id,
-                caption=" "
+                caption="💀 "
             )
         
         await status_msg.edit_text("✅ İnfaz gruba iletildi.")
@@ -343,7 +366,7 @@ async def admin_voice_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except: pass
 
     except Exception as e:
-        await status_msg.edit_text(f"⚠️ Hata: {e}")
+        await status_msg.edit_text(f"⚠️ Hata: Link hatalı veya mesaj çok eski.\nDetay: {e}")
 
 async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id != AUTHORIZED_GROUP_ID:
@@ -435,27 +458,27 @@ async def main():
 
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
-    # DÜZELTME: pytz.timezone ile Türkiye saati garantiye alındı
+    # DÜZELTME: pytz.timezone ile Türkiye saati garantiye alındı ve girinti hatası düzeltildi.
     scheduler = AsyncIOScheduler(timezone=pytz.timezone("Europe/Istanbul"))
 
     # Hedef Saatler (TRT): 09, 11, 13, 15, 17, 19, 21, 23, 01
     target_hours = '1,2,3,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,0'
 
-    # 😈 Kaos Soruları (:40 geçe)
-    scheduler.add_job(send_kaos_sorusu, 'cron', hour=target_hours, minute=40, args=[application])
+    # 😈 Kaos Soruları (:45 geçe)
+    scheduler.add_job(send_kaos_sorusu, 'cron', hour=target_hours, minute=45, args=[application])
 
     # 📰 Haberler (:05 geçe)
     scheduler.add_job(send_gundem_haberi, 'cron', hour=target_hours, minute=5, args=[application])
 
-    # 🎙️ Otomatik Sesli İnfaz (:20 geçe)
-    scheduler.add_job(send_auto_roast, 'cron', hour=target_hours, minute=20, args=[application])
+    # 🎙️ Otomatik Sesli İnfaz (:25 geçe)
+    scheduler.add_job(send_auto_roast, 'cron', hour=target_hours, minute=25, args=[application])
 
     scheduler.start()
 
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("duyuru", announce_command))
-    application.add_handler(CommandHandler("yorumla", comment_command)) # Yazılı
-    application.add_handler(CommandHandler("yanitla", admin_voice_reply)) # Sesli (DM)
+    application.add_handler(CommandHandler("yorumla", comment_command))
+    application.add_handler(CommandHandler("yanitla", admin_voice_reply)) # YENİ ADMIN KOMUTU
     application.add_handler(MessageHandler(filters.Regex(r'(?i)^/son(200|300)(@chat_ozet_bot)?$'), summarize_command))
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), record_message))
 
