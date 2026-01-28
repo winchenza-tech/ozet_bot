@@ -5,3 +5,4 @@ Flask
 nest_asyncio
 apscheduler
 feedparser
+pytz
