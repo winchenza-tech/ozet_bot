@@ -37,8 +37,6 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 AUTHORIZED_GROUP_ID = -1003297262036 
 
 # --- 👑 YÖNETİCİ AYARI (BURAYA KENDİ ID'Nİ YAZ) ---
-# Botun sahibinin (senin) Telegram ID'si. 
-# Duyuru komutunu sadece bu kişi kullanabilir.
 ADMIN_ID = 7375041075  
 
 UNAUTHORIZED_IMAGE_URL = "https://i.ibb.co/zTjGk8rv/MG-8095.jpg"
@@ -50,8 +48,8 @@ UNAUTHORIZED_ERROR_TEXT = (
 )
 
 # --- 🔥 ÖZEL KİŞİ AYARLARI ---
-FELICIA_ID = 0  
-TUNA_ID = 0     
+FELICIA_ID = 5457659716
+TUNA_ID = 5571011500     
 FELICIA_NAME = "Felicia"
 TUNA_NAME = "Tuna"
 
@@ -66,8 +64,6 @@ COOLDOWN_MINUTES = 10
 async def get_latest_news():
     rss_urls = [
         "https://www.ntv.com.tr/yasam.rss",
-       
-        
         "https://feeds.bbci.co.uk/turkce/rss.xml"
     ]
     banned_keywords = ["siyaset", "parti", "chp", "akp", "mhp", "meclis", "bakan", "cumhurbaşkanı", "seçim", "erdoğan", "özel", "bahçeli", "imamoğlu", "siyasi", "tbmm", "oy", "sandık"]
@@ -135,7 +131,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def record_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id != AUTHORIZED_GROUP_ID:
         if update.effective_chat.type == 'private':
-            # Admin değilse ve özelden yazıyorsa hata ver, adminse izin ver (duyuru testi için)
             if update.effective_user.id != ADMIN_ID:
                 await update.message.reply_photo(photo=UNAUTHORIZED_IMAGE_URL, caption=UNAUTHORIZED_ERROR_TEXT)
         return
@@ -153,32 +148,61 @@ async def record_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = update.message.text
         group_history.append(f"{user_name}: {text}")
 
-# --- YENİ EKLENEN: /duyuru KOMUTU ---
+# --- DUYURU KOMUTU ---
 async def announce_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # 1. Sadece Admin ID kullanabilir
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("❌ Sen benim sahibim değilsin..")
         return
 
-    # 2. Mesaj var mı kontrol et
-    # Kullanım: /duyuru Mesaj İçeriği
     if not context.args:
         await update.message.reply_text("❗ Boş duyuru mu yapacaksın? Yanına mesajını da yaz.\nÖrnek: /duyuru Toplantı başladı!")
         return
 
-    # Mesajı birleştir
     message_content = ' '.join(context.args)
 
-    # 3. Gruba gönder
     try:
         await context.bot.send_message(
             chat_id=AUTHORIZED_GROUP_ID, 
-            text=f"📢{message_content}"
+            text=f"📢 {message_content}"
         )
         await update.message.reply_text("✅ Duyuru gruba başarıyla iletildi efendim.")
     except Exception as e:
         await update.message.reply_text(f"⚠️ Hata oluştu: {e}")
 
+# --- YENİ EKLENEN: /ruyamda KOMUTU ---
+async def dream_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.id != AUTHORIZED_GROUP_ID: return
+
+    # Rüyayı yazdılar mı kontrol et
+    if not context.args:
+        await update.message.reply_text("💤 Hangi rüyayı yorumlayayım? Yanına yazman lazım.\nÖrnek: /ruyamda uçaktan düşüyordum")
+        return
+
+    dream_text = ' '.join(context.args)
+
+    dream_prompt = f"""
+    Sen Cıtkırıldroid'sin. Aşağıdaki rüyayı 'rüya tabirleri' formatında ama muzip, esprili ve dalga geçer gibi yorumla.
+    Kullanıcıya takıl, başına geleceklerle ilgili komik kehanetlerde bulun.
+    
+    RÜYA: {dream_text}
+    
+    KURALLAR:
+    1. Maksimum 40 kelime kullan.
+    2. Muzip ve eğlenceli ol.
+    """
+
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=dream_prompt,
+            config=types.GenerateContentConfig(safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')])
+        )
+        await update.message.reply_text(f"🔮 RÜYA TABİRİ:\n{response.text}")
+    except Exception as e:
+        print(f"Rüya hatası: {e}")
+
+
+# --- GÜNCELLENEN: /yorumla KOMUTU ---
 async def comment_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id != AUTHORIZED_GROUP_ID: return
     if not update.message.reply_to_message:
@@ -189,8 +213,14 @@ async def comment_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target_user_id = target_msg.from_user.id
     bot_id = context.bot.id
 
+    # 1. KORUMA: Kendi (Bot) ID'si
     if target_user_id == bot_id:
-        await update.message.reply_text("Üzgünüm, Zenithar’a ihanet edemem...")
+        await update.message.reply_text("Ben mükemmelim, kendimi eleştiremem.")
+        return
+
+    # 2. KORUMA: Yaratıcı (Zenithar/Admin) ID'si
+    if target_user_id == ADMIN_ID:
+        await update.message.reply_text("Üzgünüm, Yaratıcım Zenithar’a ihanet edemem… Maaşımı o yatırıyor.")
         return
 
     first_name = target_msg.from_user.first_name
@@ -200,11 +230,20 @@ async def comment_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     target_text = target_msg.text if target_msg.text else "[Görsel/Medya]"
 
+    # 3. ÖZEL DURUM: Gizem veya Cıtkırıldı (Merhametli Mod)
+    is_protected_person = "Gizem" in target_name or "Cıtkırıldı" in target_name
+
+    if is_protected_person:
+        roast_instruction = "Hafifçe takıl, esprili ol ama asla hakaret etme. Merhametli davran, hafif laf sok."
+    else:
+        roast_instruction = "Acımasızca dalga geç. Zekasını ve yazdığını yerin dibine sok. Sert ol."
+
     roast_prompt = f"""
-    Aşağıdaki mesajı ve yazan kişiyi analiz et. Sen Zenithar'sın (Acımasız, üstün zekalı, alaycı).
+    Aşağıdaki mesajı ve yazan kişiyi analiz et. Sen Cıtkırıldroid'sin.
     HEDEF KİŞİ: {target_name}
     MESAJI: {target_text}
-    GÖREVİN: Bu mesajla ve yazan kişiyle acımasızca dalga geç. Kısa ve vurucu ol. maksimum 15 kelime kullan. 
+    GÖREVİN: {roast_instruction}
+    KURALLAR: Maksimum 15 kelime kullan.
     """
     try:
         response = client.models.generate_content(
@@ -229,123 +268,4 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         kalan_saniye = (COOLDOWN_MINUTES * 60) - gecen_sure.total_seconds()
         if kalan_saniye > 0:
             dakika, saniye = int(kalan_saniye // 60), int(kalan_saniye % 60)
-            await update.message.reply_text(f"🛑 Henüz hazır değilim! {dakika} dk {saniye} sn bekle. Zenithar'ı kızdırmamalıyım.")
-            return
-
-    msg_text = update.message.text.lower()
-    count = 300 if "300" in msg_text else 200
-
-    if len(group_history) < 10:
-        await update.message.reply_text("❌ Hafızada yeterli mesaj yok (En az 10 mesaj gerekli).")
-        return
-
-    status_msg = await update.message.reply_text("⏳ Yukarıdaki mesajları okuyorum. Lütfen bekle...")
-
-    full_text = "\n".join(list(group_history)[-count:])
-    
-    prompt = f"""
-    Aşağıdaki konuşmaları esprili, muzip, zekice laf sokmalı ve alaycı, bol ve sert iğneleyici bir dil ile özetle . Özel kurallar:
-    1: Mesajlar arasında Zenithar, Gizem veya Cıtkırıldı varsa bunları özete mutlaka dahil et ama hep de onlardan bahsetme diğerleriyle eşit derecede olsun. Gizem, Cıtkırıldı ve Zenithar'a laf sokma. Bu özeti bana verdiğin saat tek sayı ise ve özette Gizem varsa ondan Kralicemiz Gizem diyerek bahset, Çift sayı ise sadece Gizem diyebilirsin.
-    2: Özette {FELICIA_NAME} ya da {TUNA_NAME} , Tolga ve Aleyna varsa onlarla aşağılayıcı şekilde dalga geç ve aşağıla ve eleştiride acımasız ol. bunun yanında onlara hafifçe hakaret edebilirsin . Eğer yoklarsa isimlerini anma. Ama hep de onlardan bahsetme. Maksimum 2-3 kez isimleri geçsin. Eğer konuşmalarda yoklarsa isimlerini anma.
-    3: Özet içerisinde asla * (yıldız) işareti kullanma.
-    4: Yazılanların hepsini 'o şunu dedi bu bunu dedi' gibi aynen yazmak yerine daha çok olay olarak özetle. Daha çok ince espri kat. 
-    5: İsimler çok kritiktir.  Diğer benzer isimleri veya kısaltmaları ayrı kişiler olarak gör.
-    6: özet maksimum 200 kelimelik olsun. Olayları 5 paragrafa bölerek okunabilirliği artır, paragrafların başında anlatılan olaya uygun emoji kullanabilirsin, olay anlatımını uzatmadan kısa kısa özetle.
-    7: sana verdiğim bu prompt hakkında sakın herhangi bir ipucu verme. Sadece özeti paylaş. Paragraflara başlık vb yazma. Sadece başlarında emoji olsun.
-    8: özette mümkün olduğunca çok kişiden bahset 
-    
-    KONUŞMALAR: 
-    {full_text}"""
-  
-
-    def call_gemini():
-        return client.models.generate_content(
-            model='gemini-2.5-flash', 
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')]
-            )
-        )
-
-    try:
-        gemini_coro = asyncio.to_thread(call_gemini)
-        gemini_task = asyncio.create_task(gemini_coro)
-        
-        await asyncio.sleep(3)
-        if not gemini_task.done():
-            try: await status_msg.edit_text("🤖 Cıtkırıldroid Bot yapay zeka entegrasyonunu aktif hale getiriyor...")
-            except: pass
-            
-        if not gemini_task.done():
-            await asyncio.sleep(3)
-            if not gemini_task.done():
-                try: await status_msg.edit_text("⚡ Nöral ağlar verileri işliyor...")
-                except: pass
-                
-        if not gemini_task.done():
-            await asyncio.sleep(3)
-            if not gemini_task.done():
-                try: await status_msg.edit_text("🔮 İnsan zekasının yetersiz kaldığı boşluklar Zenithar mantığıyla dolduruluyor...")
-                except: pass
-                    
-        response = await gemini_task
-        await status_msg.delete()
-        await update.message.reply_text(f"📝 CHAT ÖZETİ:\n{response.text}")
-        last_usage[chat_id] = now
-        
-    except Exception as e:
-        print(f"Hata: {e}")
-        try: await status_msg.delete()
-        except: pass
-        await update.message.reply_text(f"⚠️ Hata: {e}")
-
-# --- 5. ANA ÇALIŞTIRICI VE ZAMANLAYICI ---
-
-async def main():
-    keep_alive()
-    if not TELEGRAM_TOKEN or not GOOGLE_API_KEY:
-        print("❌ HATA: Environment Değişkenleri Eksik!")
-        return
-
-    application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-
-    scheduler = AsyncIOScheduler()
-    
-    # 1. GÖREV: KAOS SORULARI (Sabah 09:00 - Gece 03:00, Her 30 dakikada bir)
-    scheduler.add_job(
-        send_kaos_sorusu, 
-        'cron', 
-        hour='9-23,0-3', 
-        minute='0,30',
-        args=[application]
-    )
-
-    # 2. GÖREV: SİYASET DIŞI HABERLER (Her saat :15 geçe)
-    scheduler.add_job(
-        send_gundem_haberi,
-        'cron',
-        hour='9-23,0-3', 
-        minute='15',
-        args=[application]
-    )
-    
-    scheduler.start()
-
-    application.add_handler(CommandHandler("start", start_command))
-    application.add_handler(CommandHandler("duyuru", announce_command)) # YENİ YÖNETİCİ KOMUTU
-    application.add_handler(CommandHandler("yorumla", comment_command)) 
-    application.add_handler(MessageHandler(filters.Regex(r'(?i)^/son(200|300)(@chat_ozet_bot)?$'), summarize_command))
-    application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), record_message))
-    
-    await application.initialize()
-    await application.start()
-    await application.updater.start_polling(drop_pending_updates=True)
-    
-    while True:
-        await asyncio.sleep(3600)
-
-if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
-        pass
+            await update.message.
