@@ -140,7 +140,7 @@ async def send_auto_roast(context: ContextTypes.DEFAULT_TYPE):
         target_text = selected_msg
 
     roast_prompt = f"""
-    Aşağıdaki mesajı gruptan rastgele yakaladım. Sen Zenithar'sın.
+    
     Bu mesajı yazan kişiyi ({target_name}) ve yazdığı şeyi ({target_text}) acımasızca, alaycı ve aşağılayıcı bir dille eleştir.
     Sanki araya girip "Bu ne saçmalık" diyormuşsun gibi olsun aşaüğıla ve hakaret et.
     Kısa ve vurucu yaz. Sesli okunacak, o yüzden emoji kullanma. maksimum 15 kelime kullan.
@@ -251,7 +251,7 @@ async def comment_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target_text = target_msg.text if target_msg.text else "[Görsel/Medya]"
 
     roast_prompt = f"""
-    Aşağıdaki mesajı ve yazan kişiyi analiz et. Sen Zenithar'sın (Acımasız, üstün zekalı, alaycı).
+    (Acımasız, üstün zekalı, alaycısın).
     HEDEF KİŞİ: {target_name}
     MESAJI: {target_text}
     GÖREVİN: Bu mesajla ve yazan kişiyle acımasızca dalga geç, aşağıla. Kısa ve vurucu ol. Maksimum 20 kelime kullan.
@@ -417,8 +417,8 @@ async def main():
     target_hours = '1,2,3,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,0'
 
     scheduler.add_job(send_kaos_sorusu, 'cron', hour=target_hours, minute=5, args=[application])
-    scheduler.add_job(send_gundem_haberi, 'cron', hour=target_hours, minute=25, args=[application])
-    scheduler.add_job(send_auto_roast, 'cron', hour=target_hours, minute=55, args=[application])
+    scheduler.add_job(send_gundem_haberi, 'cron', hour=target_hours, minute=45, args=[application])
+    scheduler.add_job(send_auto_roast, 'cron', hour=target_hours, minute=15, args=[application])
 
     scheduler.start()
 
