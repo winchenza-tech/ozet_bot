@@ -160,7 +160,7 @@ async def send_auto_roast(context: ContextTypes.DEFAULT_TYPE):
         roast_text = response.text
         
         # 2. Ses Efekti (Kahkaha)
-        audio_text = "Muah ha ha ha! " + roast_text 
+        audio_text =  roast_text + "Muah ha ha ha! " 
         
         # 3. Ses Dosyası Oluştur
         def create_audio_file(text):
@@ -224,7 +224,7 @@ async def announce_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await context.bot.send_message(
             chat_id=AUTHORIZED_GROUP_ID, 
-            text=f"📢 **ZENITHAR DUYURUSU**\n\n{message_content}"
+            text=f"📢{message_content}"
         )
         await update.message.reply_text("✅ Duyuru iletildi.")
     except Exception as e:
