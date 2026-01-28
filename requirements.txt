@@ -1,5 +1,6 @@
 google-genai
 python-telegram-bot
+gTTS
 Flask
 nest_asyncio
 apscheduler
