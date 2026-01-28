@@ -39,7 +39,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 AUTHORIZED_GROUP_ID = -1003297262036
 
 # --- 👑 YÖNETİCİ AYARI ---
-ADMIN_ID = 0 
+ADMIN_ID = 7375041075 
 
 UNAUTHORIZED_IMAGE_URL = "https://i.ibb.co/zTjGk8rv/MG-8095.jpg"
 UNAUTHORIZED_ERROR_TEXT = (
@@ -176,7 +176,7 @@ async def send_auto_roast(context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_voice(
             chat_id=AUTHORIZED_GROUP_ID,
             voice=open(filename, 'rb'),
-            caption=f"🎙️Hedef: {target_name}"
+            caption=f" {target_name}"
         )
 
         # 5. Temizlik
