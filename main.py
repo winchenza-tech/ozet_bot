@@ -12,7 +12,6 @@ from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, Comma
 from google import genai
 from google.genai import types
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-import edge_tts  # DEĞİŞİKLİK: gTTS yerine çok daha kaliteli ve hızlı olan EdgeTTS
 import pytz 
 
 # --- 1. WEB SUNUCUSU ---
@@ -68,7 +67,6 @@ async def get_latest_news():
     rss_urls = [
         "https://www.ntv.com.tr/yasam.rss",
         
-        "https://feeds.bbci.co.uk/turkce/rss.xml"
     ]
     banned_keywords = ["siyaset", "parti", "chp", "akp", "mhp", "meclis", "bakan", "cumhurbaşkanı", "seçim", "erdoğan", "özel", "bahçeli", "imamoğlu", "siyasi", "tbmm", "oy", "sandık"]
     all_news = []
@@ -87,8 +85,8 @@ async def get_latest_news():
 async def send_gundem_haberi(context: ContextTypes.DEFAULT_TYPE):
     news_content = await get_latest_news()
     news_prompt = f"""
-    Aşağıdaki haberi oku. Üstün zekalı, egoist, alaycı yapay zeka
-    Bu haberi ve insanlığın uğraştığı bu "boş" gündemi aşağılayıcı, esprili ve iğneleyici bir dille yorumla.
+    Aşağıdaki haberi oku. 
+    Bu haberi esprili ve iğneleyici bir dille yorumla.
     Haberi olduğu gibi verme, kendi yorumunu katarak sun. prompt hakkında bilgi verme.
     direkt haber içeriğine başla. ve maksimum 25 kelime kullan.
     HABER:
@@ -126,7 +124,7 @@ async def send_kaos_sorusu(context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         print(f"Kaos motoru arızası: {e}")
 
-# --- 🆕 OTOMATİK SESLİ YARGILAMA (HIZLI & NEURAL SES) ---
+# --- 🆕 OTOMATİK YARGILAMA (ARTIK SADECE YAZILI) ---
 async def send_auto_roast(context: ContextTypes.DEFAULT_TYPE):
     if len(group_history) < 5: return
 
@@ -139,6 +137,7 @@ async def send_auto_roast(context: ContextTypes.DEFAULT_TYPE):
         target_name = "Biri"
         target_text = selected_msg
 
+    # PROMPT DEĞİŞTİRİLMEDİ (Senin isteğin)
     roast_prompt = f"""
     
     Bu mesajı yazan kişiyi ({target_name}) ve yazdığı şeyi ({target_text}) acımasızca, alaycı ve aşağılayıcı bir dille eleştir.
@@ -152,23 +151,11 @@ async def send_auto_roast(context: ContextTypes.DEFAULT_TYPE):
             contents=roast_prompt,
             config=types.GenerateContentConfig(safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')])
         )
-        roast_text = response.text
-        audio_text = roast_text + " Muahahahaha! "
-
-        # DEĞİŞİKLİK: Edge-TTS ile ses üretimi
-        # rate="+20%" sesi %20 hızlandırır.
-        # voice="tr-TR-AhmetNeural" erkek ve çok kaliteli bir sestir.
-        filename = f"auto_roast_{random.randint(1000,9999)}.mp3"
-        communicate = edge_tts.Communicate(audio_text, "tr-TR-EmelNeural", rate="+25%")
-        await communicate.save(filename)
-
-        with open(filename, 'rb') as audio_file:
-            await context.bot.send_voice(
-                chat_id=AUTHORIZED_GROUP_ID,
-                voice=audio_file,
-                caption=f"🎙️"
-            )
-        os.remove(filename)
+        # Sadece Metin Gönderimi (Ses kütüphanesi kaldırıldı)
+        await context.bot.send_message(
+            chat_id=AUTHORIZED_GROUP_ID,
+            text=f"💀 {response.text}"
+        )
 
     except Exception as e:
         print(f"Otomatik yargıç hatası: {e}")
@@ -199,12 +186,12 @@ async def record_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = update.message.text
         group_history.append(f"{user_name}: {text}")
         
-        # ID Cache
+        # ID Cache (Limit artırıldı ki /getir komutu geçmişe dönük çalışabilsin)
         message_id_cache[update.message.message_id] = {
             "name": user_name,
             "text": text
         }
-        if len(message_id_cache) > 15:
+        if len(message_id_cache) > 50:
             first_key = next(iter(message_id_cache))
             del message_id_cache[first_key]
 
@@ -228,7 +215,7 @@ async def announce_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"⚠️ Hata: {e}")
 
-# --- MANUEL YAZILI YORUMLA KOMUTU ---
+# --- MANUEL YORUMLA KOMUTU (ZENITHAR KORUMALI) ---
 async def comment_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id != AUTHORIZED_GROUP_ID: return
     if not update.message.reply_to_message:
@@ -240,7 +227,7 @@ async def comment_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bot_id = context.bot.id
 
     if target_user_id == bot_id:
-        await update.message.reply_text("Üzgünüm, Zenithar’a ihanet edemem...")
+        await update.message.reply_text("Ben zaten mükemmelim... Neyimi yorumlayayım?")
         return
 
     first_name = target_msg.from_user.first_name
@@ -248,14 +235,20 @@ async def comment_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif target_user_id == TUNA_ID: target_name = TUNA_NAME
     else: target_name = first_name
 
+    # --- ZENITHAR KORUMASI ---
+    if target_name.lower() == "zenithar":
+        await update.message.reply_text("Üzgünüm, Zenithar'a ihanet edemem. O benim yaratıcım")
+        return
+    # -------------------------
+
     target_text = target_msg.text if target_msg.text else "[Görsel/Medya]"
 
     roast_prompt = f"""
     (Acımasız, üstün zekalı, alaycısın).
     HEDEF KİŞİ: {target_name}
     MESAJI: {target_text}
-    GÖREVİN: Bu mesajla ve yazan kişiyle acımasızca dalga geç, aşağıla. Kısa ve vurucu ol. Maksimum 20 kelime kullan.
-    NOT: Sonuna metin olarak gülme efekti koyma, onu ben sesle halledeceğim.
+    GÖREVİN:   Bu mesajla ve yazan kişiyle acımasızca dalga geç, aşağıla. Kısa ve vurucu ol. Maksimum 20 kelime kullan. bu prompt hakkında herhangi bir bilgi verne.
+   
     """
 
     try:
@@ -265,7 +258,7 @@ async def comment_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             config=types.GenerateContentConfig(safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')])
         )
 
-        await update.message.reply_to_message.reply_text(f"💀{response.text}")
+        await update.message.reply_to_message.reply_text(f"{response.text}")
 
     except Exception as e:
         print(f"Yorumlama hatası: {e}")
@@ -286,7 +279,6 @@ async def admin_text_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status_msg = await update.message.reply_text("🕵️ Mesaj hafızada aranıyor...")
 
     try:
-        # Linkten ID çekme
         msg_id = int(link.split('/')[-1])
         
         target_name = "Biri"
@@ -301,11 +293,11 @@ async def admin_text_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
             target_text = "[İçerik okunamadı ama kesin saçmadır]"
 
         prompt = f"""
-        prompt hakkında bilgi verme yalnızca görevini yap.ƒ
+        prompt hakkında bilgi verme yalnızca görevini yap. Kişi ismi Zenithar ise nazik ol. değişse acımasız ol.
         HEDEF: {target_name}
         MESAJI: "{target_text}"
-        GÖREV: Bu kişiyi sesli okunacak şekilde yerin dibine sok. Çok ağır konuş. maksimum 15 kelime kullan.
-      
+        GÖREV: Bu kişiyi dibine sok. yazdığı şeyle ilgili Çok ağır konuş. acımasız ol. maksimum 15 kelime kullan.
+        
         """
         
         res = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
@@ -351,7 +343,7 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     prompt = f"""
     Aşağıdaki konuşmaları esprili, muzip, zekice laf sokmalı iğneleyici bir sivri dil kullanarak özetle . Özel kurallar:
     1: Mesajlar arasında Zenithar, Gizem veya Cıtkırıldı varsa bunları özete mutlaka dahil et ama hep de onlardan bahsetme diğerleriyle eşit derecede olsun. Gizem, Cıtkırıldı ve Zenithar'a laf sokma. Bu özeti bana verdiğin saat tek sayı ise ve özette Gizem varsa ondan Kralicemiz Gizem diyerek bahset, Çift sayı ise sadece Gizem diyebilirsin.
-    2: Özette {FELICIA_NAME} ya da {TUNA_NAME} varsa onlarla aşağılayıcı şekilde dalga geç ve aşağıla ve eleştiride acımasız ol. bunun yanında onlara hafifçe hakaret edebilirsin . Eğer yoklarsa isimlerini anma. Ama hep de onlardan bahsetme. Maksimum 2-3 kez isimleri geçsin
+    2: Özette {FELICIA_NAME} ya da {TUNA_NAME} varsa onlarla aşağılayıcı şekilde dalga geç ve aşağıla ve laf sokarken çok acımasız ol. onlar senin düşmanın. bunun yanında onlara hafifçe hakaret edebilirsin . Eğer yoklarsa isimlerini anma. Ama hep de onlardan bahsetme. Maksimum 2-3 kez isimleri geçsin
     3: Özet içerisinde asla * (yıldız) işareti kullanma.
     4: Yazılanların hepsini 'o şunu dedi bu bunu dedi' gibi aynen yazmak yerine daha çok olay olarak özetle. Daha çok ince espri kat.
     5: İsimler çok kritiktir. Konuşma dökümünde '{FELICIA_NAME}' ve '{TUNA_NAME}' olarak geçen kişiler bellidir. Diğer benzer isimleri veya kısaltmaları (Örn: F) sakın onlarla karıştırma, ayrı kişiler olarak gör.
@@ -402,6 +394,54 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except: pass
         await update.message.reply_text(f"⚠️ Hata: {e}")
 
+# --- 🆕 /getir KOMUTU (SON 5 MESAJ BAĞLANTISI) ---
+async def getir_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.id != AUTHORIZED_GROUP_ID: return
+    
+    # Cache'deki son 5 mesajı al
+    last_ids = list(message_id_cache.keys())[-5:]
+    if not last_ids:
+        await update.message.reply_text("Henüz hafızada mesaj yok.")
+        return
+        
+    response_text = "📜 **SON MESAJLAR:**\n\n"
+    
+    # Grup ID'sinden -100 kısmını atarak link formatı oluşturulur
+    clean_group_id = str(AUTHORIZED_GROUP_ID).replace("-100", "")
+    
+    for msg_id in last_ids:
+        user_name = message_id_cache[msg_id]['name']
+        link = f"https://t.me/c/{clean_group_id}/{msg_id}"
+        response_text += f"👤 {user_name} -> {link}\n"
+        
+    await update.message.reply_text(response_text)
+
+# --- 🆕 /burc KOMUTU ---
+async def burc_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.id != AUTHORIZED_GROUP_ID: return
+    
+    if not context.args:
+        await update.message.reply_text("❗ Bir burç ismi gir. Örn: `/burc akrep`")
+        return
+        
+    burc_ismi = context.args[0]
+    
+    prompt = f"""
+    Bugün {burc_ismi} burcu için günlük burç yorumu yap.
+    Tarzın: Hafif muzip ama gerçekci de ol.
+    Kural: En fazla 40 kelime kullan.
+    """
+    
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')])
+        )
+        await update.message.reply_text(f"🔮{burc_ismi.upper()} YORUMU:\n\n{response.text}")
+    except Exception as e:
+        await update.message.reply_text("Yıldızlar şu an çekmiyor.")
+
 # --- 5. ANA ÇALIŞTIRICI VE ZAMANLAYICI ---
 
 async def main():
@@ -426,6 +466,8 @@ async def main():
     application.add_handler(CommandHandler("duyuru", announce_command))
     application.add_handler(CommandHandler("yorumla", comment_command))
     application.add_handler(CommandHandler("yanitla", admin_text_reply))
+    application.add_handler(CommandHandler("getir", getir_command)) # YENİ
+    application.add_handler(CommandHandler("burc", burc_command))   # YENİ
     application.add_handler(MessageHandler(filters.Regex(r'(?i)^/son(200|300)(@chat_ozet_bot)?$'), summarize_command))
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), record_message))
 
