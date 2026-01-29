@@ -187,7 +187,7 @@ async def record_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = update.message.text
         group_history.append(f"{user_name}: {text}")
         
-        # ID Cache (Limit artırıldı ki /getir komutu geçmişe dönük çalışabilsin)
+        # ID Cache
         message_id_cache[update.message.message_id] = {
             "name": user_name,
             "text": text
@@ -396,18 +396,20 @@ async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except: pass
         await update.message.reply_text(f"⚠️ Hata: {e}")
 
-# --- 🆕 /getir KOMUTU (ÖZEL MESAJA GİDER) ---
+# --- 🆕 /getir KOMUTU (SADECE ADMİN DM) ---
 async def getir_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Sadece Admin Kullanabilir
-    if update.effective_user.id != ADMIN_ID: return
+    # 1. Kontrol: Komut sadece Özel Mesajda (DM) çalışır
+    if update.effective_chat.type != 'private':
+        return 
+
+    # 2. Kontrol: Sadece Admin Kullanabilir
+    if update.effective_user.id != ADMIN_ID:
+        return
     
     # Cache'deki son 5 mesajı al
     last_ids = list(message_id_cache.keys())[-5:]
     if not last_ids:
-        try:
-            await context.bot.send_message(chat_id=ADMIN_ID, text="Henüz hafızada mesaj yok.")
-        except:
-            await update.message.reply_text("Bana özelden yazman lazım.")
+        await update.message.reply_text("Henüz hafızada mesaj yok.")
         return
         
     response_text = "📜 **SON MESAJLAR:**\n\n"
@@ -420,22 +422,27 @@ async def getir_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         link = f"https://t.me/c/{clean_group_id}/{msg_id}"
         response_text += f"👤 {user_name} -> {link}\n"
     
-    # KULLANICI ISTEĞI: Botun içerisinden (DM) yazsın.
-    try:
-        await context.bot.send_message(chat_id=ADMIN_ID, text=response_text)
-    except Exception as e:
-        # Eğer admin bota start vermemişse DM atamaz, o zaman uyarı veririz.
-        await update.message.reply_text("Mesaj kutuna erişemiyorum. Bana özelden /start de.")
+    await update.message.reply_text(response_text)
 
-# --- 🆕 /gunluk KOMUTU (ESKİ ADI BURC) ---
-async def gunluk_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# --- 🆕 /gunlukburc KOMUTU ---
+async def gunlukburc_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id != AUTHORIZED_GROUP_ID: return
     
+    # Geçerli burç listesi
+    valid_signs = ["koç", "boğa", "ikizler", "yengeç", "aslan", "başak", 
+                   "terazi", "akrep", "yay", "oğlak", "kova", "balık",
+                   "koc", "boga", "yengec", "basak", "oglak", "balik"] # Türkçe karakter olmayan halleri
+
     if not context.args:
-        await update.message.reply_text("❗ Bir burç ismi gir. Örn: `/gunluk akrep`")
+        await update.message.reply_text("❗ Bir burç ismi gir. Örn: `/gunlukburc akrep`")
         return
         
-    burc_ismi = context.args[0]
+    burc_ismi = context.args[0].lower()
+
+    # Burç Doğrulama
+    if burc_ismi not in valid_signs:
+        await update.message.reply_text("daha burcun adını yazamıyorsun burç yorumu okumak senin neyine")
+        return
     
     prompt = f"""
     Bugün {burc_ismi} burcu için günlük burç yorumu yap.
@@ -477,8 +484,8 @@ async def main():
     application.add_handler(CommandHandler("duyuru", announce_command))
     application.add_handler(CommandHandler("yorumla", comment_command))
     application.add_handler(CommandHandler("yanitla", admin_text_reply))
-    application.add_handler(CommandHandler("getir", getir_command)) # DM'e atar
-    application.add_handler(CommandHandler("gunluk", gunluk_command))   # ADI DEĞİŞTİ
+    application.add_handler(CommandHandler("getir", getir_command)) # Sadece DM
+    application.add_handler(CommandHandler("gunlukburc", gunlukburc_command))   # ADI DEĞİŞTİ & KONTROL EKLENDİ
     application.add_handler(MessageHandler(filters.Regex(r'(?i)^/son(200|300)(@chat_ozet_bot)?$'), summarize_command))
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), record_message))
 
