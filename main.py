@@ -97,7 +97,7 @@ async def send_asparagas_haber(context: ContextTypes.DEFAULT_TYPE):
             contents=prompt,
             config=types.GenerateContentConfig(safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')])
         )
-        await context.bot.send_message(chat_id=AUTHORIZED_GROUP_ID, text=f"🚨 **SON DAKİKA - ŞOK İDDİA!**\n\n{response.text}")
+        await context.bot.send_message(chat_id=AUTHORIZED_GROUP_ID, text=f"🚨SON DAKİKA\n{response.text}")
     except Exception as e:
         print(f"Asparagas motoru hatası: {e}")
 
@@ -225,7 +225,7 @@ async def tarot_command(update, context):
             contents=prompt,
             config=types.GenerateContentConfig(safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')])
         )
-        await status.edit_text(f"🔮 **TAROT FALI**\n\n🃏 **Kartlar:** {', '.join(secilenler)}\n\n📜 **Yorum:**\n{res.text}")
+        await status.edit_text(f"🔮 TAROT FALI\n🃏 **Kartlar:** {', '.join(secilenler)}\n\n📜 **Yorum:**\n{res.text}")
     except:
         await status.edit_text("Ruhlar alemine ulaşılamadı.")
 
@@ -279,7 +279,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     prompt = f"""
     Burç: {burc}. Dönem: {zaman_dilimi}.
     Bu burç için {detay} astrolojik yorum yap.
-    Ciddi, profesyonel ve astrolojik terimler (açılar, evler vb.) içersin. Yüzeysel olmasın. samimi olsun.
+    Ciddi, profesyonel ama biraz da samimi günlük bir dil içersin. Yüzeysel olmasın. samimi olsun.
     Maksimum {limit} kelime.
     """
     
@@ -293,7 +293,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         
         baslik = "📅 GÜNLÜK" if tur == "gunluk" else "🗓️ HAFTALIK"
-        final_text = f"{emoji} **{burc.upper()} {baslik} YORUMU:\n\n{res.text}"
+        final_text = f"{emoji} {burc.upper()} {baslik} YORUMU:\n{res.text}"
         await query.edit_message_text(text=final_text)
         
     except Exception as e:
