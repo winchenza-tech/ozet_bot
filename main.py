@@ -225,7 +225,7 @@ async def tarot_command(update, context):
             contents=prompt,
             config=types.GenerateContentConfig(safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')])
         )
-        await status.edit_text(f"🔮 TAROT FALI\n🃏 **Kartlar:** {', '.join(secilenler)}\n\n📜 **Yorum:**\n{res.text}")
+        await status.edit_text(f"🔮TAROT FALI\n🃏 Kartlar: {', '.join(secilenler)}\n📜 Yorum:\n{res.text}")
     except:
         await status.edit_text("Ruhlar alemine ulaşılamadı.")
 
