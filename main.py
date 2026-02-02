@@ -210,7 +210,7 @@ async def tarot_command(update, context):
     
     secilenler = random.sample(TAROT_CARDS, 3)
     
-    status = await update.message.reply_text(f"🃏 Kartlar karıştırılıyor...\n1. {secilenler[0]}\n2. {secilenler[1]}\n3. {secilenler[2]}")
+    status = await update.message.reply_text(f"🃏Kartlar karıştırılıyor...\n1. {secilenler[0]}\n2. {secilenler[1]}\n3. {secilenler[2]}")
     await asyncio.sleep(2)
     
     prompt = f"""
@@ -234,7 +234,7 @@ async def tarot_command(update, context):
 async def burcyorumla_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id != AUTHORIZED_GROUP_ID: return
     if not context.args:
-        await update.message.reply_text("❗ Kullanım: `/burcyorumla akrep`")
+        await update.message.reply_text("❗ Kullanım: `/burcyorumla başak`")
         return
 
     burc = context.args[0].lower()
@@ -254,7 +254,7 @@ async def burcyorumla_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(f"{emoji} **{burc.upper()}** için periyot seç:", reply_markup=reply_markup)
+    await update.message.reply_text(f"{emoji} {burc.upper()} için periyot seç:", reply_markup=reply_markup)
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -281,7 +281,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     Burç: {burc}. Dönem: {zaman_dilimi}.
     Bu burç için {detay} astrolojik yorum yap.
     Ciddi, profesyonel ama biraz da samimi günlük bir dil içersin. Yüzeysel olmasın. samimi olsun.
-    Maksimum {limit} kelime.
+    Maksimum {limit} kelime. okunaklı, iki paragraf halinde yaz.
     """
     
     try:
@@ -294,7 +294,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         
         baslik = "📅 GÜNLÜK" if tur == "gunluk" else "🗓️ HAFTALIK"
-        final_text = f"{emoji} {burc.upper()} {baslik} YORUMU:\n{res.text}"
+        final_text = f"{emoji} {burc.upper()} {baslik} YORUMU:\n\n{res.text}"
         await query.edit_message_text(text=final_text)
         
     except Exception as e:
