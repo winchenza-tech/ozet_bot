@@ -68,13 +68,13 @@ ZODIAC_EMOJIS = {
 }
 
 TAROT_CARDS = [
-    "Deli (The Fool)", "Büyücü (The Magician)", "Azize (The High Priestess)",
-    "İmparatoriçe (The Empress)", "İmparator (The Emperor)", "Aziz (The Hierophant)",
-    "Aşıklar (The Lovers)", "Savaş Arabası (The Chariot)", "Güç (Strength)",
-    "Ermiş (The Hermit)", "Kader Çarkı (Wheel of Fortune)", "Adalet (Justice)",
-    "Asılan Adam (The Hanged Man)", "Ölüm (Death)", "Denge (Temperance)",
-    "Şeytan (The Devil)", "Yıkılan Kule (The Tower)", "Yıldız (The Star)",
-    "Ay (The Moon)", "Güneş (The Sun)", "Mahkeme (Judgement)", "Dünya (The World)"
+    "Deli", "Büyücü", "Azize",
+    "İmparatoriçe", "İmparator", "Aziz",
+    "Aşıklar", "Savaş Arabası", "Güç",
+    "Ermiş", "Kader Çarkı", "Adalet",
+    "Asılan Adam", "Ölüm", "Denge",
+    "Şeytan", "Yıkılan Kule", "Yıldız",
+    "Ay", "Güneş", "Mahkeme", "Dünya"
 ]
 
 # --- 3. MOTORLAR ---
