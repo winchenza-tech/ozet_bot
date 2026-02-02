@@ -185,7 +185,7 @@ async def ibadet_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             contents=prompt,
             config=types.GenerateContentConfig(safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')])
         )
-        await update.message.reply_text(f"📖 **KUTSAL KELAM:**\n\n{response.text}")
+        await update.message.reply_text(f"📖\n{response.text}")
     except: pass
 
 async def summarize_command(update, context):
