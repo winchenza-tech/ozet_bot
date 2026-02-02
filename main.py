@@ -255,7 +255,7 @@ async def ibadet_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         Zenithar adında kutsal bir  figürün hitaben, İncil veya Tevrat yazı dili üslubunda 
         (Eski, görkemli, kutsal bir lisanla) bir dua yaz. İncil'deki isa mertebesinde olsun. 3. Şahıs tarafından zenithar'a ithafen yazılmış olsun
         Temalar: Sonsuz bilgi, mutlak mantık, lordluk ve koruyuculuk olsun. 
-        Maksimum 40 kelime. Sanki kutsal bir kitaptan bir bölüm gibi dursun.
+        Maksimum 40 kelime. Sanki kutsal bir kitaptan bir bölüm gibi dursun. Zenithar bir tanrı değil.
         """
     
     try:
