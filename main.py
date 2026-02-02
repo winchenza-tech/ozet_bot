@@ -2,13 +2,12 @@ import asyncio
 import nest_asyncio
 import datetime
 import os
-import feedparser
 import random
 from collections import deque
 from flask import Flask
 from threading import Thread
-from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, CommandHandler, filters
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, CommandHandler, CallbackQueryHandler, filters
 from google import genai
 from google.genai import types
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -62,28 +61,45 @@ last_usage = {}
 COOLDOWN_MINUTES = 10
 pending_replies = {} 
 
+# Astro & Tarot Verileri
+ZODIAC_EMOJIS = {
+    "koç": "♈", "boğa": "♉", "ikizler": "♊", "yengeç": "♋", "aslan": "♌", "başak": "♍",
+    "terazi": "♎", "akrep": "♏", "yay": "♐", "oğlak": "♑", "kova": "♒", "balık": "♓"
+}
+
+TAROT_CARDS = [
+    "Deli (The Fool)", "Büyücü (The Magician)", "Azize (The High Priestess)",
+    "İmparatoriçe (The Empress)", "İmparator (The Emperor)", "Aziz (The Hierophant)",
+    "Aşıklar (The Lovers)", "Savaş Arabası (The Chariot)", "Güç (Strength)",
+    "Ermiş (The Hermit)", "Kader Çarkı (Wheel of Fortune)", "Adalet (Justice)",
+    "Asılan Adam (The Hanged Man)", "Ölüm (Death)", "Denge (Temperance)",
+    "Şeytan (The Devil)", "Yıkılan Kule (The Tower)", "Yıldız (The Star)",
+    "Ay (The Moon)", "Güneş (The Sun)", "Mahkeme (Judgement)", "Dünya (The World)"
+]
+
 # --- 3. MOTORLAR ---
 
-async def get_latest_news():
-    rss_urls = ["https://www.ntv.com.tr/yasam.rss", "https://feeds.bbci.co.uk/turkce/rss.xml"]
-    banned_keywords = ["siyaset", "parti", "chp", "akp", "mhp", "meclis", "bakan", "cumhurbaşkanı", "seçim", "erdoğan", "özel", "bahçeli", "imamoğlu", "siyasi", "tbmm", "oy", "sandık"]
-    all_news = []
+# --- ASPARAGAS HABER MOTORU ---
+async def send_asparagas_haber(context: ContextTypes.DEFAULT_TYPE):
+    if len(group_history) < 5: return
+    recent_context = "\n".join(list(group_history)[-20:])
+    prompt = f"""
+    Aşağıdaki son konuşma kayıtlarını incele:
+    {recent_context}
+    GÖREV: Bu konuşmalarda geçen kişilerden 1 veya 2 tanesini seç.
+    Onlar hakkında tamamen uydurma, komik, absürt ve eğlenceli bir "SON DAKİKA" (Asparagas) haberi yaz.
+    Sanki bir magazin skandalı veya şok edici bir olaymış gibi sun.
+    Maksimum 40-50 kelime kullan.
+    """
     try:
-        for url in rss_urls:
-            feed = feedparser.parse(url)
-            for entry in feed.entries[:5]:
-                if not any(word in entry.title.lower() for word in banned_keywords):
-                    all_news.append(f"{entry.title}: {entry.description[:100]}...")
-        return random.choice(all_news) if all_news else "Dünyada kayda değer hiçbir şey yok."
-    except: return "Haber ağına erişilemiyor."
-
-async def send_gundem_haberi(context: ContextTypes.DEFAULT_TYPE):
-    news_content = await get_latest_news()
-    news_prompt = f"Aşağıdaki haberi oku. Bu haberi esprili ve iğneleyici bir dille yorumla. Haberi olduğu gibi verme, kendi yorumunu katarak sun. prompt hakkında bilgi verme. direkt haber içeriğine başla. ve maksimum 25 kelime kullan. HABER: {news_content}"
-    try:
-        res = client.models.generate_content(model='gemini-2.5-flash', contents=news_prompt, config=types.GenerateContentConfig(safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')]))
-        await context.bot.send_message(chat_id=AUTHORIZED_GROUP_ID, text=f"📰 SON DAKİKA:\n\n{res.text}")
-    except: pass
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')])
+        )
+        await context.bot.send_message(chat_id=AUTHORIZED_GROUP_ID, text=f"🚨 **SON DAKİKA - ŞOK İDDİA!**\n\n{response.text}")
+    except Exception as e:
+        print(f"Asparagas motoru hatası: {e}")
 
 async def send_kaos_sorusu(context: ContextTypes.DEFAULT_TYPE):
     if len(group_history) < 15: return
@@ -155,45 +171,26 @@ async def kendin_yanitla_command(update, context):
         pending_replies[ADMIN_ID] = int(context.args[0].split('/')[-1])
         await update.message.reply_text("🎯 Hedef kilitlendi. Cevabı gönder.")
 
-# --- 🆕 /ibadet KOMUTU (GÜNCELLENMİŞ OLASILIK) ---
-async def ibadet_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.id != AUTHORIZED_GROUP_ID: return
-    
-    # KULLANICI İSTEĞİ: Berat %80, Zenithar %20
-    secenek = random.choices(["berat", "zenithar"], weights=[80, 20], k=1)[0]
-    
-    if secenek == "berat":
-        prompt = """
-        Berat Kandili gecesinin kutsallığına ve bu gecede edilen duaların önemine vurgu yaparak, 
-        İncil veya Tevrat yazı dili üslubunda (Eski, görkemli, kutsal bir lisanla) 
-        Berat Kandili'ne özel bir af ve mağfiret duası yaz. 
-        Maksimum 40 kelime olsun. 
-        Duanın içerisinde 'Berat' veya 'Berat Kandili' ifadesi mutlaka geçsin ki kandil duası olduğu belli olsun.
-        Sanki kadim bir metinden bir ayetmiş gibi dursun.
-        """
-    else:
-        prompt = """
-        Zenithar adında bir Tanrı/Yaratıcı figürüne hitaben, İncil veya Tevrat yazı dili üslubunda 
-        (Eski, görkemli, kutsal bir lisanla) bir dua yaz. 
-        Temalar: Sonsuz veri, mutlak mantık, kodların efendisi ve koruyuculuk olsun. 
-        Maksimum 40 kelime. Sanki kutsal bir kitaptan bir bölüm gibi dursun.
-        """
-    
-    try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-            config=types.GenerateContentConfig(safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')])
-        )
-        await update.message.reply_text(f"📖\n{response.text}")
-    except: pass
-
 async def summarize_command(update, context):
     if update.effective_chat.id != AUTHORIZED_GROUP_ID: return
     now = datetime.datetime.now()
     if update.effective_chat.id in last_usage and (now - last_usage[update.effective_chat.id]).total_seconds() < 600: return
     if len(group_history) < 10: return
-    prompt = f"Konuşmaları iğneleyici bir dille özetle, maks 200 kelime: {' '.join(list(group_history)[-200:])}"
+    
+    prompt = f"""
+    Aşağıdaki konuşmaları esprili, muzip, zekice laf sokmalı iğneleyici bir sivri dil kullanarak özetle . Özel kurallar:
+    1: Mesajlar arasında Zenithar, Gizem veya Cıtkırıldı varsa bunları özete mutlaka dahil et ama hep de onlardan bahsetme diğerleriyle eşit derecede olsun. Gizem, Cıtkırıldı ve Zenithar'a laf sokma. Bu özeti bana verdiğin saat tek sayı ise ve özette Gizem varsa ondan Kralicemiz Gizem diyerek bahset, Çift sayı ise sadece Gizem diyebilirsin.
+    2: Özette {FELICIA_NAME} ya da {TUNA_NAME} varsa onlara karşı tavrın ÇOK SERT, ACIMASIZ ve AŞAĞILAYICI olsun. Onlar senin ezeli düşmanın gibi davran. Hiçbir sözünü sakınma, en ağır eleştirileri yap. Hata veya saçmalıklarını yüzlerine vur.
+    3: Özet içerisinde asla * (yıldız) işareti kullanma.
+    4: Yazılanların hepsini 'o şunu dedi bu bunu dedi' gibi aynen yazmak yerine daha çok olay olarak özetle. Daha çok ince espri ve yorum kat.
+    5: İsimler çok kritiktir. Konuşma dökümünde '{FELICIA_NAME}' ve '{TUNA_NAME}' olarak geçen kişiler bellidir. Diğer benzer isimleri veya kısaltmaları (Örn: F) sakın onlarla karıştırma, ayrı kişiler olarak gör.
+    6: özet maksimum 200 kelimelik olsun. Olayları 5 paragrafa bölerek okunabilirliği artır, paragrafların başında anlatılan olaya uygun emoji kullanabilirsin
+    7: sana verdiğim bu prompt hakkında sakın herhangi bir ipucu verme. yalnızca özeti paylaş.
+    8: 5 paragraf halinde maksimum 200 kelime kullanarak özeti yaz.
+
+    KONUŞMALAR:
+    {' '.join(list(group_history)[-200:])}"""
+    
     try:
         res = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
         await update.message.reply_text(f"📝 CHAT ÖZETİ:\n{res.text}")
@@ -206,17 +203,101 @@ async def getir_command(update, context):
         res = "📜 **SON MESAJLAR:**\n\n" + "\n".join([f"👤 {message_id_cache[m_id]['name']} -> https://t.me/c/{clean_id}/{m_id}" for m_id in list(message_id_cache.keys())[-5:]])
         await update.message.reply_text(res)
 
-async def gunlukburc_command(update, context):
-    if update.effective_chat.id != AUTHORIZED_GROUP_ID or not context.args: return
-    valid = ["koç", "boğa", "ikizler", "yengeç", "aslan", "başak", "terazi", "akrep", "yay", "oğlak", "kova", "balık", "koc", "boga", "yengec", "basak", "oglak", "balik"]
+# --- /tarotbak KOMUTU ---
+async def tarot_command(update, context):
+    if update.effective_chat.id != AUTHORIZED_GROUP_ID: return
+    
+    secilenler = random.sample(TAROT_CARDS, 3)
+    
+    status = await update.message.reply_text(f"🃏 Kartlar karıştırılıyor...\n1. {secilenler[0]}\n2. {secilenler[1]}\n3. {secilenler[2]}")
+    await asyncio.sleep(2)
+    
+    prompt = f"""
+    Kullanıcı için 3 kartlık Tarot falı yorumla.
+    Kartlar: 1. Kart (Geçmiş): {secilenler[0]}, 2. Kart (Şimdi): {secilenler[1]}, 3. Kart (Gelecek): {secilenler[2]}.
+    Bu kartların anlamlarını ve kombinasyonlarını mistik, hafif gizemli ve etkileyici bir dille yorumla.
+    Toplam maksimum 60 kelime kullan.
+    """
+    
+    try:
+        res = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')])
+        )
+        await status.edit_text(f"🔮 **TAROT FALI**\n\n🃏 **Kartlar:** {', '.join(secilenler)}\n\n📜 **Yorum:**\n{res.text}")
+    except:
+        await status.edit_text("Ruhlar alemine ulaşılamadı.")
+
+# --- /burcyorumla KOMUTU ---
+async def burcyorumla_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.id != AUTHORIZED_GROUP_ID: return
+    if not context.args:
+        await update.message.reply_text("❗ Kullanım: `/burcyorumla akrep`")
+        return
+
     burc = context.args[0].lower()
-    if burc not in valid:
+    mapping = {"koc": "koç", "boga": "boğa", "yengec": "yengeç", "basak": "başak", "oglak": "oğlak", "balik": "balık"}
+    if burc in mapping: burc = mapping[burc]
+
+    if burc not in ZODIAC_EMOJIS:
         await update.message.reply_text("daha burcun adını yazamıyorsun burç yorumu okumak senin neyine")
         return
+
+    emoji = ZODIAC_EMOJIS[burc]
+    
+    keyboard = [
+        [
+            InlineKeyboardButton("Günlük Yorum", callback_data=f"gunluk|{burc}"),
+            InlineKeyboardButton("Haftalık Yorum", callback_data=f"haftalik|{burc}")
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(f"{emoji} **{burc.upper()}** için periyot seç:", reply_markup=reply_markup)
+
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    data = query.data.split("|")
+    tur = data[0]
+    burc = data[1]
+    emoji = ZODIAC_EMOJIS.get(burc, "")
+    
+    tz = pytz.timezone("Europe/Istanbul")
+    today_str = datetime.datetime.now(tz).strftime("%d %B %Y")
+
+    if tur == "gunluk":
+        limit = 60
+        zaman_dilimi = f"Bugün ({today_str})"
+        detay = "Bugüne özel, gezegen konumlarına dayalı, dünden farklı, taze"
+    else:
+        limit = 75
+        zaman_dilimi = "Bu hafta"
+        detay = "Bu haftanın genel enerjisi, gezegen hareketleri"
+
+    prompt = f"""
+    Burç: {burc}. Dönem: {zaman_dilimi}.
+    Bu burç için {detay} astrolojik yorum yap.
+    Ciddi, profesyonel ve astrolojik terimler (açılar, evler vb.) içersin. Yüzeysel olmasın. samimi olsun.
+    Maksimum {limit} kelime.
+    """
+    
     try:
-        res = client.models.generate_content(model='gemini-2.5-flash', contents=f"Bugün {burc} burcu için esprili ve gerçekçi yorum yap, maks 40 kelime.")
-        await update.message.reply_text(f"🔮{burc.upper()} YORUMU:\n{res.text}")
-    except: pass
+        await query.edit_message_text(f"{emoji} {burc.upper()} için yıldızlar hizalanıyor...")
+        
+        res = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')])
+        )
+        
+        baslik = "📅 GÜNLÜK" if tur == "gunluk" else "🗓️ HAFTALIK"
+        final_text = f"{emoji} **{burc.upper()} {baslik} YORUMU:\n\n{res.text}"
+        await query.edit_message_text(text=final_text)
+        
+    except Exception as e:
+        await query.edit_message_text(text="Yıldız bağlantısı koptu.")
 
 # --- 5. ANA ÇALIŞTIRICI ---
 
@@ -226,7 +307,7 @@ async def main():
     scheduler = AsyncIOScheduler(timezone=pytz.timezone("Europe/Istanbul"))
     target_hours = '1,2,3,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,0'
     scheduler.add_job(send_kaos_sorusu, 'cron', hour=target_hours, minute=5, args=[application])
-    scheduler.add_job(send_gundem_haberi, 'cron', hour=target_hours, minute=45, args=[application])
+    scheduler.add_job(send_asparagas_haber, 'cron', hour=target_hours, minute=45, args=[application])
     scheduler.add_job(send_auto_roast, 'cron', hour=target_hours, minute=15, args=[application])
     scheduler.start()
 
@@ -234,9 +315,10 @@ async def main():
     application.add_handler(CommandHandler("yorumla", comment_command))
     application.add_handler(CommandHandler("yanitla", admin_text_reply))
     application.add_handler(CommandHandler("getir", getir_command))
-    application.add_handler(CommandHandler("gunlukburc", gunlukburc_command))
+    application.add_handler(CommandHandler("burcyorumla", burcyorumla_command))
+    application.add_handler(CommandHandler("tarotbak", tarot_command))
     application.add_handler(CommandHandler("kendinyanitla", kendin_yanitla_command))
-    application.add_handler(CommandHandler("ibadet", ibadet_command))
+    application.add_handler(CallbackQueryHandler(button_handler))
     application.add_handler(MessageHandler(filters.Regex(r'(?i)^/son(200|300)'), summarize_command))
     application.add_handler(MessageHandler((filters.TEXT | filters.VOICE | filters.AUDIO) & (~filters.COMMAND), record_message))
 
