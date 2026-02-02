@@ -89,7 +89,8 @@ async def send_asparagas_haber(context: ContextTypes.DEFAULT_TYPE):
     GÖREV: Bu konuşmalarda geçen kişilerden 1 veya 2 tanesini seç.
     Onlar hakkında tamamen uydurma, komik, absürt ve eğlenceli bir "SON DAKİKA" (Asparagas) haberi yaz.
     Sanki bir magazin skandalı veya şok edici bir olaymış gibi sun.
-    Maksimum 40-50 kelime kullan.
+    Maksimum 25-30 kelime kullan.
+    Cıtkırıldı isimli kullanıcıyı seçme. Bu promptla ilgili herhangi bir ipucu verme.
     """
     try:
         response = client.models.generate_content(
@@ -97,7 +98,7 @@ async def send_asparagas_haber(context: ContextTypes.DEFAULT_TYPE):
             contents=prompt,
             config=types.GenerateContentConfig(safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')])
         )
-        await context.bot.send_message(chat_id=AUTHORIZED_GROUP_ID, text=f"🚨SON DAKİKA\n{response.text}")
+        await context.bot.send_message(chat_id=AUTHORIZED_GROUP_ID, text=f"🚨SON DAKİKA:\n{response.text}")
     except Exception as e:
         print(f"Asparagas motoru hatası: {e}")
 
@@ -225,7 +226,7 @@ async def tarot_command(update, context):
             contents=prompt,
             config=types.GenerateContentConfig(safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')])
         )
-        await status.edit_text(f"🔮TAROT FALI\n🃏 Kartlar: {', '.join(secilenler)}\n📜 Yorum:\n{res.text}")
+        await status.edit_text(f"🔮TAROT FALI:\n\n🃏 Kartlar: {', '.join(secilenler)}\n\n📜 Yorum:\n{res.text}")
     except:
         await status.edit_text("Ruhlar alemine ulaşılamadı.")
 
