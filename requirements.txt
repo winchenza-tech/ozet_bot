@@ -1,9 +1,6 @@
-google-genai
 python-telegram-bot
-gTTS
+google-genai
 Flask
-nest_asyncio
-apscheduler
-feedparser
+APScheduler
 pytz
-edge-tts
+nest_asyncio
