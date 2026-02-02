@@ -172,13 +172,35 @@ async def kendin_yanitla_command(update, context):
         pending_replies[ADMIN_ID] = int(context.args[0].split('/')[-1])
         await update.message.reply_text("🎯 Hedef kilitlendi. Cevabı gönder.")
 
+# --- DÜZELTİLEN ÖZET KOMUTU ---
 async def summarize_command(update, context):
-    if update.effective_chat.id != AUTHORIZED_GROUP_ID: return
+    if update.effective_chat.id != AUTHORIZED_GROUP_ID:
+        await update.message.reply_photo(photo=UNAUTHORIZED_IMAGE_URL, caption=UNAUTHORIZED_ERROR_TEXT)
+        return
+
+    chat_id = update.effective_chat.id
     now = datetime.datetime.now()
-    if update.effective_chat.id in last_usage and (now - last_usage[update.effective_chat.id]).total_seconds() < 600: return
-    if len(group_history) < 10: return
-    
+
+    # Cooldown Kontrolü
+    if chat_id in last_usage:
+        gecen_sure = now - last_usage[chat_id]
+        kalan_saniye = (COOLDOWN_MINUTES * 60) - gecen_sure.total_seconds()
+        if kalan_saniye > 0:
+            dakika, saniye = int(kalan_saniye // 60), int(kalan_saniye % 60)
+            await update.message.reply_text(f"🛑 Henüz hazır değilim! {dakika} dk {saniye} sn bekle.")
+            return
+
+    msg_text = update.message.text.lower()
+    count = 300 if "300" in msg_text else 200
+
+    if len(group_history) < 10:
+        await update.message.reply_text("❌ Hafızada yeterli mesaj yok.")
+        return
+
     status_msg = await update.message.reply_text("⏳ Yukarıdaki mesajları okuyorum...")
+
+    # Son mesajları al
+    full_text = "\n".join(list(group_history)[-count:])
 
     prompt = f"""
     Aşağıdaki konuşmaları esprili, muzip, zekice laf sokmalı iğneleyici bir sivri dil kullanarak özetle . Özel kurallar:
@@ -193,8 +215,9 @@ async def summarize_command(update, context):
     9: olayları iyi analiz et. kişileri karıştırma
 
     KONUŞMALAR:
-    {' '.join(list(group_history)[-200:])}"""
+    {full_text}"""
     
+    # Gemini'yi thread içinde çağıran fonksiyon
     def call_gemini():
         return client.models.generate_content(
             model='gemini-2.5-flash',
@@ -203,9 +226,11 @@ async def summarize_command(update, context):
         )
 
     try:
+        # Gemini çağrısını thread'e atıyoruz
         gemini_coro = asyncio.to_thread(call_gemini)
         gemini_task = asyncio.create_task(gemini_coro)
 
+        # Bekleme Animasyonu Döngüsü
         await asyncio.sleep(3)
         if not gemini_task.done():
             try: await status_msg.edit_text("🤖 Cıtkırıldroid Bot yapay zeka entegrasyonunu aktif hale getiriyor...")
@@ -223,10 +248,12 @@ async def summarize_command(update, context):
                 try: await status_msg.edit_text("🔮 İnsan zekasının yetersiz kaldığı boşluklar Zenithar mantığıyla dolduruluyor...")
                 except: pass
 
+        # Sonucu al
         response = await gemini_task
         await status_msg.delete()
         await update.message.reply_text(f"📝 CHAT ÖZETİ:\n{response.text}")
-        last_usage[update.effective_chat.id] = now
+        last_usage[chat_id] = now
+
     except Exception as e:
         print(f"Özet hatası: {e}")
         try: await status_msg.delete()
@@ -354,7 +381,8 @@ async def main():
     application.add_handler(CommandHandler("tarotbak", tarot_command))
     application.add_handler(CommandHandler("kendinyanitla", kendin_yanitla_command))
     application.add_handler(CallbackQueryHandler(button_handler))
-    application.add_handler(MessageHandler(filters.Regex(r'(?i)^/son(200|300)'), summarize_command))
+    # DÜZELTİLEN REGEX: hem /son200 hem /son300'ü yakalar
+    application.add_handler(MessageHandler(filters.Regex(r'(?i)^/son(200|300)(@.*)?$'), summarize_command))
     application.add_handler(MessageHandler((filters.TEXT | filters.VOICE | filters.AUDIO) & (~filters.COMMAND), record_message))
 
     await application.initialize(); await application.start()
