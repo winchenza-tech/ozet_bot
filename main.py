@@ -3,6 +3,7 @@ import nest_asyncio
 import datetime
 import os
 import random
+import io  # Resim işlemleri için eklendi
 from collections import deque
 from flask import Flask
 from threading import Thread
@@ -55,7 +56,7 @@ TUNA_NAME = "Tuna"
 
 client = genai.Client(api_key=GOOGLE_API_KEY)
 
-group_history = deque(maxlen=250)
+group_history = deque(maxlen=350)
 message_id_cache = {} 
 last_usage = {}
 COOLDOWN_MINUTES = 10
@@ -172,7 +173,61 @@ async def kendin_yanitla_command(update, context):
         pending_replies[ADMIN_ID] = int(context.args[0].split('/')[-1])
         await update.message.reply_text("🎯 Hedef kilitlendi. Cevabı gönder.")
 
-# --- DÜZELTİLEN ÖZET KOMUTU (100-200) ---
+# --- YENİ EKLENEN ÖZETLE KOMUTU (GÖRSEL VE METİN) ---
+async def ozetle_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message.reply_to_message:
+        await update.message.reply_text("❗ Bir mesaja (metin veya resim) yanıt vererek kullan.")
+        return
+
+    target = update.message.reply_to_message
+    
+    # 1. GÖRSEL KONTROLÜ
+    if target.photo:
+        status_msg = await update.message.reply_text("🖼️ Görsel inceleniyor ve özetleniyor...")
+        try:
+            # Fotoğrafı indir
+            photo_file = await target.photo[-1].get_file()
+            f = io.BytesIO()
+            await photo_file.download_to_memory(f)
+            f.seek(0)
+            image_bytes = f.read()
+
+            prompt_text = "Bu resimdeki yazıları oku ve içeriği veya resmi genel hatlarıyla Türkçe olarak özetle."
+
+            # Gemini Vision Çağrısı
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=[
+                    types.Content(
+                        parts=[
+                            types.Part.from_text(text=prompt_text),
+                            types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg")
+                        ]
+                    )
+                ],
+                config=types.GenerateContentConfig(safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')])
+            )
+            await status_msg.edit_text(f"📝GÖRSEL ÖZETİ:\n\n{response.text}")
+        except Exception as e:
+            await status_msg.edit_text(f"⚠️ Hata: {e}")
+
+    # 2. METİN KONTROLÜ
+    elif target.text or target.caption:
+        content = target.text or target.caption
+        status_msg = await update.message.reply_text("📝 Metin özetleniyor...")
+        try:
+            prompt_text = f"Aşağıdaki metni Türkçe olarak, ana hatlarıyla ve net bir şekilde özetle:\n\n{content}"
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt_text,
+                config=types.GenerateContentConfig(safety_settings=[types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_NONE')])
+            )
+            await status_msg.edit_text(f"📝 METİN ÖZETİ:\n\n{response.text}")
+        except Exception as e:
+            await status_msg.edit_text(f"⚠️ Hata: {e}")
+    else:
+        await update.message.reply_text("❌ Özetlenecek metin veya görsel bulunamadı.")
+
 async def summarize_command(update, context):
     if update.effective_chat.id != AUTHORIZED_GROUP_ID:
         await update.message.reply_photo(photo=UNAUTHORIZED_IMAGE_URL, caption=UNAUTHORIZED_ERROR_TEXT)
@@ -190,7 +245,6 @@ async def summarize_command(update, context):
             return
 
     msg_text = update.message.text.lower()
-    # BURADA DEĞİŞİKLİK YAPILDI: 300 yerine 100
     count = 100 if "100" in msg_text else 200
 
     if len(group_history) < 10:
@@ -254,8 +308,11 @@ async def summarize_command(update, context):
         try: await status_msg.delete()
         except: pass
 
+# --- DÜZELTİLEN GETİR KOMUTU ---
 async def getir_command(update, context):
-    if update.effective_chat.type != 'private' and update.effective_user.id == ADMIN_ID:
+    # ESKİ HATALI SATIR: if update.effective_chat.type != 'private' ...
+    # YENİ DÜZELTİLMİŞ SATIR:
+    if update.effective_chat.type == 'private' and update.effective_user.id == ADMIN_ID:
         clean_id = str(AUTHORIZED_GROUP_ID).replace("-100", "")
         res = "📜 **SON MESAJLAR:**\n\n" + "\n".join([f"👤 {message_id_cache[m_id]['name']} -> https://t.me/c/{clean_id}/{m_id}" for m_id in list(message_id_cache.keys())[-5:]])
         await update.message.reply_text(res)
@@ -375,8 +432,8 @@ async def main():
     application.add_handler(CommandHandler("burcyorumla", burcyorumla_command))
     application.add_handler(CommandHandler("tarotbak", tarot_command))
     application.add_handler(CommandHandler("kendinyanitla", kendin_yanitla_command))
+    application.add_handler(CommandHandler("ozetle", ozetle_command)) # YENİ KOMUT
     application.add_handler(CallbackQueryHandler(button_handler))
-    # DÜZELTİLEN REGEX: /son100 ve /son200'ü yakalar
     application.add_handler(MessageHandler(filters.Regex(r'(?i)^/son(100|200)(@.*)?$'), summarize_command))
     application.add_handler(MessageHandler((filters.TEXT | filters.VOICE | filters.AUDIO) & (~filters.COMMAND), record_message))
 
