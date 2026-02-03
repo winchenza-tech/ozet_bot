@@ -192,7 +192,7 @@ async def ozetle_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f.seek(0)
             image_bytes = f.read()
 
-            prompt_text = "Bu resimdeki yazıları oku ve içeriği veya resmi genel hatlarıyla Türkçe olarak özetle."
+            prompt_text = "Bu resimdeki yazıları oku ve içeriği veya resmi genel hatlarıyla Türkçe olarak özetle. maksimum 50 kelime kullan. yıldız * işareti kullanma"
 
             # Gemini Vision Çağrısı
             response = client.models.generate_content(
@@ -330,7 +330,7 @@ async def tarot_command(update, context):
     Kullanıcı için 3 kartlık Tarot falı yorumla.
     Kartlar: 1. Kart (Geçmiş): {secilenler[0]}, 2. Kart (Şimdi): {secilenler[1]}, 3. Kart (Gelecek): {secilenler[2]}.
     Bu kartların anlamlarını ve kombinasyonlarını mistik, hafif gizemli ve etkileyici bir dille yorumla.
-    Toplam maksimum 80 kelime kullan.
+    Toplam maksimum 80 kelime kullan. Yorum içeriğinde kartların türü yani şimdiki, geçmiş, gelecek şeklinde bahsetme. 
     """
     
     try:
