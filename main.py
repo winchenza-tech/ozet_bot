@@ -181,18 +181,31 @@ async def iftar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             else:
                 api_city = clean_city_name(city)
+                api_country = "Turkey" # Standart olarak herkesi Türkiye'de arayacak
+                
+                # İstenen 3 Özel İstisna 
+                if api_city == "berlin":
+                    api_country = "Germany"
+                elif api_city == "kopenhag":
+                    api_city = "copenhagen" # API'nin doğru bulması için
+                    api_country = "Denmark"
+                elif api_city == "kibris" or api_city == "kktc":
+                    api_city = "lefkosa" # Kıbrıs genelini Başkent Lefkoşa üzerinden çekecek
+                    api_country = "Cyprus"
+                
                 safe_city = urllib.parse.quote(api_city)
+                safe_country = urllib.parse.quote(api_country)
                 
-                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+                headers = {"User-Agent": "Mozilla/5.0"}
                 
-                url_today = f"https://api.aladhan.com/v1/timingsByCity/{date_today}?city={safe_city}&country=Turkey&method=13"
+                # url'ye country değişkenini ekledik
+                url_today = f"https://api.aladhan.com/v1/timingsByCity/{date_today}?city={safe_city}&country={safe_country}&method=13"
                 res_req = requests.get(url_today, headers=headers, timeout=10)
                 res = res_req.json()
                 
                 if res.get("code") != 200:
-                    return f"❌ '{city.capitalize()}' bulunamadı veya API yanıt vermedi."
+                    return f"❌ '{city.capitalize()}' Sadece Türkiye, Berlin ve Kopenhag için çalışır"
                 
-                # API "18:30 (+03)" gibi yanıt döndürdüğü için sadece ilk 5 karakteri alıyoruz [:5]
                 imsak_str = res["data"]["timings"]["Imsak"][:5]
                 maghrib_str = res["data"]["timings"]["Maghrib"][:5]
                 
@@ -201,11 +214,10 @@ async def iftar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 
                 tomorrow = now + datetime.timedelta(days=1)
                 date_tomorrow = tomorrow.strftime("%d-%m-%Y")
-                url_tomorrow = f"https://api.aladhan.com/v1/timingsByCity/{date_tomorrow}?city={safe_city}&country=Turkey&method=13"
+                url_tomorrow = f"https://api.aladhan.com/v1/timingsByCity/{date_tomorrow}?city={safe_city}&country={safe_country}&method=13"
                 res_tom_req = requests.get(url_tomorrow, headers=headers, timeout=10)
                 res_tom = res_tom_req.json()
                 
-                # Yarının sahur vakti için de aynısı
                 imsak_tom_str = res_tom["data"]["timings"]["Imsak"][:5]
                 imsak_tomorrow = tz.localize(datetime.datetime.strptime(f"{tomorrow.strftime('%Y-%m-%d')} {imsak_tom_str}", "%Y-%m-%d %H:%M"))
                 
@@ -230,10 +242,9 @@ async def iftar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             hours, remainder = divmod(diff.total_seconds(), 3600)
             minutes, _ = divmod(remainder, 60)
             
-            return f"📍 **{city.capitalize()}** için {event} Vakti: **{target_time.strftime('%H:%M')}**\n⏳ {event}a kalan zaman: **{int(hours)} saat {int(minutes)} dakika**"
+            return f"📍 **{city.capitalize()} için {event} Vakti: **{target_time.strftime('%H:%M')}\n⏳ {event}a kalan zaman: **{int(hours)} saat {int(minutes)} dakika"
             
         except Exception as e:
-            # Hata devam ederse sebebini direkt Telegram'a yazacak, biz de ne olduğunu göreceğiz.
             print(f"Iftar Hatasi: {e}")
             return f"❌ Vakitler alınırken teknik bir hata oluştu: `{e}`"
 
@@ -304,7 +315,7 @@ async def summarize_command(update, context):
 
         await asyncio.sleep(3)
         if not gemini_task.done():
-            try: await status_msg.edit_text("🤖 Cıtkırıldroid Bot yapay zeka entegrasyonunu aktif hale getiriyor...")
+            try: await status_msg.edit_text("🤖 Zenithroid Bot yapay zeka entegrasyonunu aktif hale getiriyor...")
             except: pass
 
         if not gemini_task.done():
