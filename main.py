@@ -3,7 +3,8 @@ import nest_asyncio
 import datetime
 import os
 import random
-import requests  # API'den iftar vakitlerini çekmek için eklendi
+import requests 
+import urllib.parse 
 from collections import deque
 from flask import Flask
 from threading import Thread
@@ -13,7 +14,7 @@ from google import genai
 from google.genai import types
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import pytz 
-import requests
+
 # --- 1. WEB SUNUCUSU ---
 flask_app = Flask('')
 
@@ -62,7 +63,8 @@ client = genai.Client(api_key=GOOGLE_API_KEY)
 group_history = deque(maxlen=350)
 message_id_cache = {} 
 last_usage = {}
-user_cities = {}  # İftar komutu için kullanıcı şehirlerini aklında tutacağı hafıza
+user_cities = {} 
+daily_prayer_cache = {} # İftar/Sahur verilerini saniyesinde vermek için eklendi!
 COOLDOWN_MINUTES = 10
 pending_replies = {} 
 
@@ -155,29 +157,56 @@ async def iftar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("📍 Lütfen bir şehir belirtin. (Örnek: /iftar istanbul)\nŞehrinizi bir kez girdikten sonra sadece /iftar yazmanız yeterli olacaktır.")
             return
 
-    status_msg = await update.message.reply_text(f"⏳ {city.capitalize()} için vakitler hesaplanıyor...")
+    # Eğer o şehir o gün için daha önce hiç aranmadıysa küçük bir bilgilendirme çıkar
+    # Eğer önceden alındıysa mesaj bile atmadan anında cevabı verecek
+    status_msg = None
+    tz = pytz.timezone("Europe/Istanbul")
+    now = datetime.datetime.now(tz)
+    date_today = now.strftime("%d-%m-%Y")
+
+    if not (city in daily_prayer_cache and daily_prayer_cache[city]["date"] == date_today):
+        status_msg = await update.message.reply_text(f"⏳ {city.capitalize()} için veriler ilk kez alınıyor, lütfen bekleyin...")
 
     def fetch_prayer_times():
-        tz = pytz.timezone("Europe/Istanbul")
-        now = datetime.datetime.now(tz)
-        date_today = now.strftime("%d-%m-%Y")
-        
-        # Aladhan API, Method 13 = Diyanet İşleri Başkanlığı
-        url_today = f"http://api.aladhan.com/v1/timingsByCity/{date_today}?city={city}&country=Turkey&method=13"
-        
         try:
-            res = requests.get(url_today).json()
-            if res.get("code") != 200:
-                return "❌ Şehir bulunamadı veya API'ye ulaşılamadı. Lütfen geçerli bir şehir girin."
+            # Önbellekte o günün verisi varsa internete hiç bağlanma, doğrudan kullan
+            if city in daily_prayer_cache and daily_prayer_cache[city]["date"] == date_today:
+                imsak_today = daily_prayer_cache[city]["imsak"]
+                maghrib_today = daily_prayer_cache[city]["maghrib"]
+                imsak_tomorrow = daily_prayer_cache[city]["imsak_tomorrow"]
             
-            timings = res["data"]["timings"]
-            imsak_str = timings["Imsak"]
-            maghrib_str = timings["Maghrib"]
-            
-            imsak_today = tz.localize(datetime.datetime.strptime(f"{now.strftime('%Y-%m-%d')} {imsak_str}", "%Y-%m-%d %H:%M"))
-            maghrib_today = tz.localize(datetime.datetime.strptime(f"{now.strftime('%Y-%m-%d')} {maghrib_str}", "%Y-%m-%d %H:%M"))
-            
-            # Zaman kıyaslamaları
+            else:
+                # Veri yoksa veya eskiyse sadece o şehir için API'den çek ve kaydet
+                safe_city = urllib.parse.quote(city)
+                
+                url_today = f"https://api.aladhan.com/v1/timingsByCity/{date_today}?city={safe_city}&country=Turkey&method=13"
+                res = requests.get(url_today, timeout=10).json()
+                if res.get("code") != 200:
+                    return "❌ Şehir bulunamadı veya API yanıt vermedi. Lütfen geçerli bir şehir girin."
+                
+                imsak_str = res["data"]["timings"]["Imsak"]
+                maghrib_str = res["data"]["timings"]["Maghrib"]
+                
+                imsak_today = tz.localize(datetime.datetime.strptime(f"{now.strftime('%Y-%m-%d')} {imsak_str}", "%Y-%m-%d %H:%M"))
+                maghrib_today = tz.localize(datetime.datetime.strptime(f"{now.strftime('%Y-%m-%d')} {maghrib_str}", "%Y-%m-%d %H:%M"))
+                
+                tomorrow = now + datetime.timedelta(days=1)
+                date_tomorrow = tomorrow.strftime("%d-%m-%Y")
+                url_tomorrow = f"https://api.aladhan.com/v1/timingsByCity/{date_tomorrow}?city={safe_city}&country=Turkey&method=13"
+                res_tom = requests.get(url_tomorrow, timeout=10).json()
+                
+                imsak_tom_str = res_tom["data"]["timings"]["Imsak"]
+                imsak_tomorrow = tz.localize(datetime.datetime.strptime(f"{tomorrow.strftime('%Y-%m-%d')} {imsak_tom_str}", "%Y-%m-%d %H:%M"))
+                
+                # Çekilen bu verileri günün tarihiyle "Ön Belleğe" kaydet
+                daily_prayer_cache[city] = {
+                    "date": date_today,
+                    "imsak": imsak_today,
+                    "maghrib": maghrib_today,
+                    "imsak_tomorrow": imsak_tomorrow
+                }
+
+            # Zaman kıyaslamalarını saniyesinde yap
             if now < imsak_today:
                 target_time = imsak_today
                 event = "Sahur"
@@ -185,13 +214,7 @@ async def iftar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 target_time = maghrib_today
                 event = "İftar"
             else:
-                # İftar geçmişse yarının sahur vaktini bul
-                tomorrow = now + datetime.timedelta(days=1)
-                date_tomorrow = tomorrow.strftime("%d-%m-%Y")
-                url_tomorrow = f"http://api.aladhan.com/v1/timingsByCity/{date_tomorrow}?city={city}&country=Turkey&method=13"
-                res_tom = requests.get(url_tomorrow).json()
-                imsak_tom_str = res_tom["data"]["timings"]["Imsak"]
-                target_time = tz.localize(datetime.datetime.strptime(f"{tomorrow.strftime('%Y-%m-%d')} {imsak_tom_str}", "%Y-%m-%d %H:%M"))
+                target_time = imsak_tomorrow
                 event = "Sahur"
                 
             diff = target_time - now
@@ -201,14 +224,22 @@ async def iftar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return f"📍 **{city.capitalize()}** için {event} Vakti: **{target_time.strftime('%H:%M')}**\n⏳ {event}a kalan zaman: **{int(hours)} saat {int(minutes)} dakika**"
             
         except Exception as e:
+            print(f"Iftar Hatasi: {e}")
             return "❌ Vakitler alınırken teknik bir hata oluştu."
 
     try:
-        # API işlemini asenkron akışı bozmaması için ayrı bir threadde çalıştırıyoruz
+        # Sonucu hesapla veya önbellekten al
         result = await asyncio.to_thread(fetch_prayer_times)
-        await status_msg.edit_text(result, parse_mode='Markdown')
+        
+        # Eğer bekletme mesajı atıldıysa onu düzenle, anında cevap verildiyse direkt cevap at
+        if status_msg:
+            await status_msg.edit_text(result, parse_mode='Markdown')
+        else:
+            await update.message.reply_text(result, parse_mode='Markdown')
+            
     except Exception as e:
-        await status_msg.edit_text("❌ Bir hata oluştu.")
+        if status_msg: await status_msg.edit_text("❌ İşlem sırasında bir hata oluştu.")
+        else: await update.message.reply_text("❌ İşlem sırasında bir hata oluştu.")
 # ------------------------------------------
 
 async def summarize_command(update, context):
@@ -305,7 +336,6 @@ async def main():
     scheduler = AsyncIOScheduler(timezone=pytz.timezone("Europe/Istanbul"))
     target_hours = '1,2,3,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,0'
     
-    # Auto roast kaldırıldı, sadece asparagas haber kaldı
     scheduler.add_job(send_asparagas_haber, 'cron', hour=target_hours, minute=45, args=[application])
     scheduler.start()
 
