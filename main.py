@@ -3,8 +3,6 @@ import nest_asyncio
 import datetime
 import os
 import random
-import requests 
-import urllib.parse 
 from collections import deque
 from flask import Flask
 from threading import Thread
@@ -63,8 +61,6 @@ client = genai.Client(api_key=GOOGLE_API_KEY)
 group_history = deque(maxlen=350)
 message_id_cache = {} 
 last_usage = {}
-user_cities = {} 
-daily_prayer_cache = {} # İftar/Sahur verilerini saniyesinde vermek için
 COOLDOWN_MINUTES = 10
 pending_replies = {} 
 
@@ -143,133 +139,6 @@ async def kendin_yanitla_command(update, context):
     if update.effective_chat.type == 'private' and update.effective_user.id in ADMIN_IDS and context.args:
         pending_replies[update.effective_user.id] = int(context.args[0].split('/')[-1])
         await update.message.reply_text("🎯 Hedef kilitlendi. Cevabı gönder.")
-
-# --- İFTAR VE SAHUR HESAPLAMA EKLENTİSİ (GARANTİLİ YANIT MOTORU) ---
-def clean_city_name(text):
-    charmap = {'ı': 'i', 'ğ': 'g', 'ü': 'u', 'ş': 's', 'ö': 'o', 'ç': 'c', 'i̇': 'i'}
-    text = text.lower().strip()
-    for tr, en in charmap.items():
-        text = text.replace(tr, en)
-    return text
-
-def fetch_prayer_data_sync(city):
-    tz = pytz.timezone("Europe/Istanbul")
-    now = datetime.datetime.now(tz)
-    date_today = now.strftime("%d-%m-%Y")
-    
-    api_city = clean_city_name(city)
-    
-    address = f"{api_city}, Turkey"
-    if api_city == "berlin": address = "Berlin, Germany"
-    elif api_city == "kopenhag": address = "Copenhagen, Denmark"
-    elif api_city in ["kibris", "kktc", "lefkoşa", "lefkosa"]: address = "Nicosia, Cyprus"
-    
-    safe_address = urllib.parse.quote(address)
-    headers = {"User-Agent": "Mozilla/5.0"}
-    
-    try:
-        # HTTPS kaynaklı bağlantı kopmalarını engellemek için HTTP kullanıldı
-        url_today = f"http://api.aladhan.com/v1/timingsByAddress/{date_today}?address={safe_address}&method=13"
-        res_today = requests.get(url_today, headers=headers, timeout=5).json()
-        
-        if res_today.get("code") != 200:
-            return None
-            
-        imsak_today_str = res_today["data"]["timings"]["Imsak"][:5]
-        maghrib_today_str = res_today["data"]["timings"]["Maghrib"][:5]
-        
-        imsak_today = tz.localize(datetime.datetime.strptime(f"{now.strftime('%Y-%m-%d')} {imsak_today_str}", "%Y-%m-%d %H:%M"))
-        maghrib_today = tz.localize(datetime.datetime.strptime(f"{now.strftime('%Y-%m-%d')} {maghrib_today_str}", "%Y-%m-%d %H:%M"))
-        
-        tomorrow = now + datetime.timedelta(days=1)
-        date_tomorrow = tomorrow.strftime("%d-%m-%Y")
-        url_tomorrow = f"http://api.aladhan.com/v1/timingsByAddress/{date_tomorrow}?address={safe_address}&method=13"
-        res_tomorrow = requests.get(url_tomorrow, headers=headers, timeout=5).json()
-        
-        imsak_tom_str = res_tomorrow["data"]["timings"]["Imsak"][:5]
-        imsak_tomorrow = tz.localize(datetime.datetime.strptime(f"{tomorrow.strftime('%Y-%m-%d')} {imsak_tom_str}", "%Y-%m-%d %H:%M"))
-        
-        return {
-            "date": date_today,
-            "imsak": imsak_today,
-            "maghrib": maghrib_today,
-            "imsak_tomorrow": imsak_tomorrow
-        }
-    except Exception as e:
-        print(f"API Hatasi: {e}")
-        return "ERROR"
-
-async def get_city_prayer_times(city, force_update=False):
-    tz = pytz.timezone("Europe/Istanbul")
-    now = datetime.datetime.now(tz)
-    date_today = now.strftime("%d-%m-%Y")
-
-    if not force_update and city in daily_prayer_cache and daily_prayer_cache[city]["date"] == date_today:
-        return daily_prayer_cache[city]
-
-    data = await asyncio.to_thread(fetch_prayer_data_sync, city)
-    if data and data != "ERROR":
-        daily_prayer_cache[city] = data
-    return data
-
-async def iftar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Komut geldiği an olası tüm çökmeleri yakalamak için TRY bloğu başlatıyoruz
-    try:
-        u_id = update.effective_user.id
-        
-        if context.args:
-            city = " ".join(context.args).lower()
-            user_cities[u_id] = city
-        else:
-            city = user_cities.get(u_id)
-            if not city:
-                await update.message.reply_text("📍 Lütfen bir şehir belirtin. (Örnek: /iftar istanbul)")
-                return
-
-        # Kullanıcı komutu yazar yazmaz GECİKMEDEN bu mesajı atacaktır.
-        status_msg = await update.message.reply_text(f"⏳ **{city.capitalize()}** için Diyanet vakitleri sorgulanıyor...", parse_mode='Markdown')
-
-        data = await get_city_prayer_times(city)
-        
-        if data == "ERROR":
-            await status_msg.edit_text("❌ Aladhan API sunucusu şu an yanıt vermiyor. Lütfen birkaç dakika sonra tekrar deneyin.")
-            return
-        elif not data:
-            await status_msg.edit_text(f"❌ '{city.capitalize()}' için veri bulunamadı. Lütfen ilçe yerine geçerli bir İL ismi yazmayı deneyin.")
-            return
-
-        tz = pytz.timezone("Europe/Istanbul")
-        now = datetime.datetime.now(tz)
-
-        if now < data["imsak"]:
-            target_time = data["imsak"]
-            event = "Sahur"
-        elif now < data["maghrib"]:
-            target_time = data["maghrib"]
-            event = "İftar"
-        else:
-            target_time = data["imsak_tomorrow"]
-            event = "Sahur"
-            
-        diff = target_time - now
-        hours, remainder = divmod(diff.total_seconds(), 3600)
-        minutes, _ = divmod(remainder, 60)
-        
-        res_text = f"📍 **{city.capitalize()}** için {event} Vakti: **{target_time.strftime('%H:%M')}**\n⏳ {event}a kalan zaman: **{int(hours)} saat {int(minutes)} dakika**"
-        
-        await status_msg.edit_text(res_text, parse_mode='Markdown')
-
-    except Exception as e:
-        # Eğer kod bir nedenden çökerse susmayıp hatayı gruba fırlatacak
-        await update.message.reply_text(f"❌ Sistemsel bir hata oluştu: {str(e)}")
-
-# GECE 00:01 OTOMATİK GÜNCELLEYİCİ
-async def auto_update_prayer_cache():
-    cities_to_update = set(user_cities.values())
-    for city in cities_to_update:
-        await get_city_prayer_times(city, force_update=True)
-        await asyncio.sleep(3) 
-# ------------------------------------------
 
 async def summarize_command(update, context):
     if update.effective_chat.id != AUTHORIZED_GROUP_ID:
@@ -366,7 +235,6 @@ async def main():
     target_hours = '1,2,3,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,0'
     
     scheduler.add_job(send_asparagas_haber, 'cron', hour=target_hours, minute=45, args=[application])
-    scheduler.add_job(auto_update_prayer_cache, 'cron', hour=0, minute=1)
     scheduler.start()
 
     application.add_handler(CommandHandler("duyuru", announce_command))
@@ -374,7 +242,6 @@ async def main():
     application.add_handler(CommandHandler("yanitla", admin_text_reply))
     application.add_handler(CommandHandler("getir", getir_command))
     application.add_handler(CommandHandler("kendinyanitla", kendin_yanitla_command))
-    application.add_handler(CommandHandler("iftar", iftar_command)) 
     application.add_handler(MessageHandler(filters.Regex(r'(?i)^/son(100|200)(@.*)?$'), summarize_command))
     application.add_handler(MessageHandler((filters.TEXT | filters.VOICE | filters.AUDIO) & (~filters.COMMAND), record_message))
 
