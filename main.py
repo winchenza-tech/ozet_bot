@@ -3,6 +3,7 @@ import nest_asyncio
 import datetime
 import os
 import random
+import requests  # API'den iftar vakitlerini çekmek için eklendi
 from collections import deque
 from flask import Flask
 from threading import Thread
@@ -61,6 +62,7 @@ client = genai.Client(api_key=GOOGLE_API_KEY)
 group_history = deque(maxlen=350)
 message_id_cache = {} 
 last_usage = {}
+user_cities = {}  # İftar komutu için kullanıcı şehirlerini aklında tutacağı hafıza eklendi
 COOLDOWN_MINUTES = 10
 pending_replies = {} 
 
@@ -149,6 +151,75 @@ async def kendin_yanitla_command(update, context):
     if update.effective_chat.type == 'private' and update.effective_user.id == ADMIN_ID and context.args:
         pending_replies[ADMIN_ID] = int(context.args[0].split('/')[-1])
         await update.message.reply_text("🎯 Hedef kilitlendi. Cevabı gönder.")
+
+# --- İFTAR VE SAHUR HESAPLAMA EKLENTİSİ ---
+async def iftar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    u_id = update.effective_user.id
+    
+    if context.args:
+        city = " ".join(context.args).lower()
+        user_cities[u_id] = city
+    else:
+        city = user_cities.get(u_id)
+        if not city:
+            await update.message.reply_text("📍 Lütfen bir şehir belirtin. (Örnek: /iftar istanbul)\nŞehrinizi bir kez girdikten sonra sadece /iftar yazmanız yeterli olacaktır.")
+            return
+
+    status_msg = await update.message.reply_text(f"⏳ {city.capitalize()} için vakitler hesaplanıyor...")
+
+    def fetch_prayer_times():
+        tz = pytz.timezone("Europe/Istanbul")
+        now = datetime.datetime.now(tz)
+        date_today = now.strftime("%d-%m-%Y")
+        
+        # Aladhan API, Method 13 = Diyanet İşleri Başkanlığı
+        url_today = f"http://api.aladhan.com/v1/timingsByCity/{date_today}?city={city}&country=Turkey&method=13"
+        
+        try:
+            res = requests.get(url_today).json()
+            if res.get("code") != 200:
+                return "❌ Şehir bulunamadı veya API'ye ulaşılamadı. Lütfen geçerli bir şehir girin."
+            
+            timings = res["data"]["timings"]
+            imsak_str = timings["Imsak"]
+            maghrib_str = timings["Maghrib"]
+            
+            imsak_today = tz.localize(datetime.datetime.strptime(f"{now.strftime('%Y-%m-%d')} {imsak_str}", "%Y-%m-%d %H:%M"))
+            maghrib_today = tz.localize(datetime.datetime.strptime(f"{now.strftime('%Y-%m-%d')} {maghrib_str}", "%Y-%m-%d %H:%M"))
+            
+            # Zaman kıyaslamaları
+            if now < imsak_today:
+                target_time = imsak_today
+                event = "Sahur"
+            elif now < maghrib_today:
+                target_time = maghrib_today
+                event = "İftar"
+            else:
+                # İftar geçmişse yarının sahur vaktini bul
+                tomorrow = now + datetime.timedelta(days=1)
+                date_tomorrow = tomorrow.strftime("%d-%m-%Y")
+                url_tomorrow = f"http://api.aladhan.com/v1/timingsByCity/{date_tomorrow}?city={city}&country=Turkey&method=13"
+                res_tom = requests.get(url_tomorrow).json()
+                imsak_tom_str = res_tom["data"]["timings"]["Imsak"]
+                target_time = tz.localize(datetime.datetime.strptime(f"{tomorrow.strftime('%Y-%m-%d')} {imsak_tom_str}", "%Y-%m-%d %H:%M"))
+                event = "Sahur"
+                
+            diff = target_time - now
+            hours, remainder = divmod(diff.total_seconds(), 3600)
+            minutes, _ = divmod(remainder, 60)
+            
+            return f"📍 **{city.capitalize()}** için {event} Vakti: **{target_time.strftime('%H:%M')}**\n⏳ {event}a kalan zaman: **{int(hours)} saat {int(minutes)} dakika**"
+            
+        except Exception as e:
+            return "❌ Vakitler alınırken teknik bir hata oluştu."
+
+    try:
+        # API işlemini asenkron akışı bozmaması için ayrı bir threadde çalıştırıyoruz
+        result = await asyncio.to_thread(fetch_prayer_times)
+        await status_msg.edit_text(result, parse_mode='Markdown')
+    except Exception as e:
+        await status_msg.edit_text("❌ Bir hata oluştu.")
+# ------------------------------------------
 
 async def summarize_command(update, context):
     if update.effective_chat.id != AUTHORIZED_GROUP_ID:
@@ -254,6 +325,7 @@ async def main():
     application.add_handler(CommandHandler("yanitla", admin_text_reply))
     application.add_handler(CommandHandler("getir", getir_command))
     application.add_handler(CommandHandler("kendinyanitla", kendin_yanitla_command))
+    application.add_handler(CommandHandler("iftar", iftar_command)) # İftar komutu eklendi
     application.add_handler(MessageHandler(filters.Regex(r'(?i)^/son(100|200)(@.*)?$'), summarize_command))
     application.add_handler(MessageHandler((filters.TEXT | filters.VOICE | filters.AUDIO) & (~filters.COMMAND), record_message))
 
