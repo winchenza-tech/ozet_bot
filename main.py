@@ -13,7 +13,7 @@ from google import genai
 from google.genai import types
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import pytz 
-
+import requests
 # --- 1. WEB SUNUCUSU ---
 flask_app = Flask('')
 
