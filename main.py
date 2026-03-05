@@ -14,7 +14,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import pytz 
 
 # --- 1. WEB SUNUCUSU ---
-flask_app = Flask('')
+flask_app = Flask(__name__)
 
 @flask_app.route('/')
 def home():
@@ -102,6 +102,16 @@ async def record_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if update.effective_chat.id == AUTHORIZED_GROUP_ID and update.message and update.message.text:
         u_id = update.effective_user.id
+        
+        # --- EYL (8390001632) OTOMATİK SUSTURUCU ---
+        if u_id == 8390001632:
+            susturma_mesajlari = ["kes", "sus", "off sus", "ötme", "havlama", "sus"]
+            try:
+                await update.message.reply_text(random.choice(susturma_mesajlari))
+            except:
+                pass
+        # -------------------------------------------
+        
         u_name = FELICIA_NAME if u_id == FELICIA_ID else TUNA_NAME if u_id == TUNA_ID else update.effective_user.first_name
         if len(u_name) <= 2: u_name = f"{u_name}"
         group_history.append(f"{u_name}: {update.message.text}")
