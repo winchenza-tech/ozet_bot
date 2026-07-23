@@ -715,7 +715,7 @@ async def run_quiz_loop(chat_id, topic, difficulty, count, context):
             QUIZ_STATE["polls"][poll_msg.poll.id] = {"correct_option": correct_idx}
             
             # Anketin bitmesini 30 saniye bekle
-            await asyncio.sleep(30)
+            await asyncio.sleep(15)
             
             await context.bot.stop_poll(chat_id, poll_msg.message_id)
         except Exception as e:
