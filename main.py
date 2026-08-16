@@ -670,7 +670,7 @@ async def generate_quiz_question(topic: str, difficulty: str, history: list) -> 
         print(f"Quiz üretme hatası: {e}")
         return None
 
-async def run_quiz_loop(chat_id, topic, difficulty, count, context):
+async def run_quiz_loop(chat_id, topic, difficulty, count, context, starter_id):
     QUIZ_STATE["scores"] = {}
     history = []
     
@@ -714,7 +714,18 @@ async def run_quiz_loop(chat_id, topic, difficulty, count, context):
             
             QUIZ_STATE["polls"][poll_msg.poll.id] = {"correct_option": correct_idx}
             
-            # Anketin bitmesini 30 saniye bekle
+            # Doğru cevabı quiz başlatan kişiye (starter_id) gönder
+            letters = ["A", "B", "C", "D"]
+            correct_letter = letters[correct_idx] if correct_idx < len(letters) else "?"
+            try:
+                await context.bot.send_message(
+                    chat_id=starter_id, 
+                    text=f"{correct_letter}) {correct_text}"
+                )
+            except Exception as e:
+                print(f"Quiz başlatana cevap iletilemedi: {e}")
+            
+            # Anketin bitmesini 15 saniye bekle (kodunda 15 vardı)
             await asyncio.sleep(15)
             
             await context.bot.stop_poll(chat_id, poll_msg.message_id)
@@ -753,11 +764,12 @@ async def quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Quiz'in yapılacağı ana grubu belirliyoruz (ALLOWED_GROUPS içerisinden birincisi)
     target_chat = ALLOWED_GROUPS[0]
+    starter_id = update.effective_user.id
     
     await update.message.reply_text(f"✅ Quiz ana grupta başlatılıyor.\nKonu: {topic}\nZorluk: {difficulty}\nSoru Sayısı: {count}")
     
-    # Arka planda quiz döngüsünü başlat
-    asyncio.create_task(run_quiz_loop(target_chat, topic, difficulty, count, context))
+    # Arka planda quiz döngüsünü başlat (starter_id ile birlikte)
+    asyncio.create_task(run_quiz_loop(target_chat, topic, difficulty, count, context, starter_id))
 
 
 # --- 6. ANKET CEVAP YAKALAYICI (QUİZ İÇİN) ---
@@ -949,4 +961,3 @@ if __name__ == "__main__":
         asyncio.run(main())
     except Exception as e:
         print(f"Kritik Hata: {e}")
-
