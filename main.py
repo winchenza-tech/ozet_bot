@@ -52,6 +52,7 @@ MODEL_NAME = 'gemini-2.5-flash'
 client = genai.Client(api_key=GOOGLE_API_KEY)
 
 BACKGROUND_TASKS = set()
+PM_VIOLATORS = {} # Güvenlik için spam takip sözlüğü
 
 # --- RPG OYUN DURUMU VE PUAN TABLOSU ---
 RPG_GAMES = {}
@@ -95,7 +96,15 @@ async def check_access(update: Update) -> bool:
 
     if is_private:
         if user_id not in ADMIN_IDS:
-            await update.effective_message.reply_text("Bu botun yalnızca belirli gruplarda çalışmasına izin verdim. Sana yetki yok @eskidenyesil")
+            if user_id in PM_VIOLATORS and PM_VIOLATORS[user_id] >= 3:
+                return False # 3'ten sonra görmezden gel
+                
+            PM_VIOLATORS[user_id] = PM_VIOLATORS.get(user_id, 0) + 1
+            
+            if PM_VIOLATORS[user_id] == 3:
+                await update.effective_message.reply_text("Bu botun yalnızca belirli gruplarda çalışmasına izin verdim. Sana yetki yok @eskidenyesil\n\n⛔ Güvenlik nedeniyle bot tarafından engellendiniz. Artık mesajlarınıza cevap verilmeyecek.")
+            else:
+                await update.effective_message.reply_text("Bu botun yalnızca belirli gruplarda çalışmasına izin verdim. Sana yetki yok @eskidenyesil")
             return False
     else:
         if chat_id not in ALLOWED_GROUPS:
@@ -105,7 +114,22 @@ async def check_access(update: Update) -> bool:
 
 async def reject_unauthorized(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_message: return
-    await update.effective_message.reply_text("Bu botun yalnızca belirli gruplarda çalışmasına izin verdim. Sana yetki yok @eskidenyesil")
+    user_id = update.effective_user.id
+    is_private = update.effective_chat.type == 'private'
+
+    if is_private:
+        if user_id not in ADMIN_IDS and user_id != 6781642262: # Quiz yetkilisi dışındakiler
+            if user_id in PM_VIOLATORS and PM_VIOLATORS[user_id] >= 3:
+                return # 3'ten sonra görmezden gel
+                
+            PM_VIOLATORS[user_id] = PM_VIOLATORS.get(user_id, 0) + 1
+            
+            if PM_VIOLATORS[user_id] == 3:
+                await update.effective_message.reply_text("Bu botun yalnızca belirli gruplarda çalışmasına izin verdim. Sana yetki yok @eskidenyesil\n\n⛔ Güvenlik nedeniyle bot tarafından engellendiniz. Artık mesajlarınıza cevap verilmeyecek.")
+            else:
+                await update.effective_message.reply_text("Bu botun yalnızca belirli gruplarda çalışmasına izin verdim. Sana yetki yok @eskidenyesil")
+    else:
+        await update.effective_message.reply_text("Bu botun yalnızca belirli gruplarda çalışmasına izin verdim. Sana yetki yok @eskidenyesil")
 
 
 # --- 3. RPG KOMUTLARI ---
@@ -655,6 +679,7 @@ async def generate_quiz_question(topic: str, difficulty: str, history: list) -> 
         f"Bana Telegram quizi için kesinlikle JSON formatında 1 adet soru üret.\n"
         f"Konu: {topic}\nZorluk: {difficulty}\n"
         f"Geçmişte sorulanlar (Bunlardan FARKLI BİR SORU ÜRET): {history}\n\n"
+        f"Soru metni maksimum 20 kelime olmalıdır.\n"
         f"Çıktın SADECE VE SADECE şu formatta bir JSON olmalı, hiçbir ekstra açıklama metni ekleme:\n"
         f'{{"question": "Soru metni", "options": ["Şık 1", "Şık 2", "Şık 3", "Şık 4"], "correct_index": 0}}'
     )
@@ -747,19 +772,22 @@ async def run_quiz_loop(chat_id, topic, difficulty, count, context, starter_id):
 async def quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Sadece bot yöneticileri özel mesaj üzerinden tetikleyebilir
     if update.effective_chat.type != 'private': return
-    if update.effective_user.id not in ADMIN_IDS: return
+    if update.effective_user.id not in ADMIN_IDS and update.effective_user.id != 6781642262: return
     
     text = update.message.text
-    match = re.match(r'(?i)^/quiz\s+(.+)\s+(kolay|orta|zor)\s+(\d+)$', text.strip())
+    # Zorluk opsiyonel hale getirildi, "kolay, orta, zor" seçeneği parantez içine alındı
+    match = re.match(r'(?i)^/quiz\s+(.+?)(?:\s+(kolay|orta|zor))?\s+(\d+)$', text.strip())
     
     if not match:
         await update.message.reply_text(
-            "⚠️ Hatalı format!\nKullanım: `/quiz <konu> <zorluk> <soru_sayısı>`\nÖrnek: `/quiz tarih kolay 10`",
+            "⚠️ Hatalı format!\nKullanım: `/quiz <konu> [zorluk] <soru_sayısı>`\nÖrnek: `/quiz tarih kolay 10` veya `/quiz tarih 10`",
             parse_mode="Markdown"
         )
         return
         
-    topic, difficulty, count_str = match.groups()
+    topic = match.group(1).strip()
+    difficulty = match.group(2) if match.group(2) else "orta"
+    count_str = match.group(3)
     count = int(count_str)
     
     # Quiz'in yapılacağı ana grubu belirliyoruz (ALLOWED_GROUPS içerisinden birincisi)
@@ -924,7 +952,7 @@ async def main():
     keep_alive()
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
-    allowed_filter = filters.Chat(chat_id=ALLOWED_GROUPS) | (filters.ChatType.PRIVATE & filters.User(user_id=ADMIN_IDS))
+    allowed_filter = filters.Chat(chat_id=ALLOWED_GROUPS) | (filters.ChatType.PRIVATE & filters.User(user_id=ADMIN_IDS + [6781642262]))
     interaction_filter = filters.TEXT | filters.COMMAND | filters.PHOTO
 
     application.add_handler(MessageHandler(interaction_filter & (~allowed_filter), reject_unauthorized))
